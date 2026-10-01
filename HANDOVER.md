@@ -3,9 +3,9 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 1 ✅ complete. **Next: Phase 2** (GitHub OAuth, JWT, dashboard skeleton).
-- **Last commit:** see `git log -1` (Phase 1 closed on 2026-10-01; CI green on `main`).
-- **In progress:** nothing; ready to start Phase 2.
+- **Phase:** 2 ✅ complete. **Next: Phase 3** (ingestion pipeline with live progress).
+- **Last commit:** see `git log -1` (Phase 2 closed on 2026-10-01).
+- **In progress:** nothing; ready to start Phase 3.
 
 ## How to run
 
@@ -61,23 +61,32 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
 | Architecture map: model outputs JSON graph, server renders Mermaid (Phase 6) | Small models often write invalid Mermaid |
 | Shiki (not Monaco) for code viewing | Read-only viewer; much lighter |
-| Hand-written GitHub OAuth (Phase 2) | Avoids allauth/social-auth model incompatibilities with Mongo |
+| Hand-written GitHub OAuth (`apps/accounts/github_oauth.py`, `views.py`) | Avoids allauth/social-auth model incompatibilities with Mongo |
+| OAuth callback → SPA gets a **one-time code** (60 s, cache) → `POST /api/auth/exchange` | Tokens never appear in URLs/history |
+| Access token in memory; refresh token httpOnly cookie on `/api/auth/` (SameSite=Lax) | XSS can't read the refresh token; cookie scoped to auth endpoints |
+| Revocation via `User.token_version` + `ver` JWT claim (`VersionedJWTAuthentication`) | simplejwt's blacklist app migrations use integer PKs (incompatible with Mongo ObjectIds) |
+| Cookie endpoints (refresh/logout) require header `X-RepoGuide-Client: web` | CSRF defence: cross-site forms can't set custom headers |
+| GitHub token encrypted with MultiFernet (`TOKEN_ENCRYPTION_KEYS`; dev falls back to a SECRET_KEY-derived key only when DEBUG) | Encryption at rest + key rotation |
+| OAuth redirect URI defaults to `{FRONTEND_URL}/api/auth/github/callback` | Goes through the Vite proxy/nginx so cookies stay same-origin |
 | SSE via async Django views + fetch-stream on frontend | Needs Authorization header and POST (EventSource can't) |
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
 
 ## Completed
+- **Phase 2:** GitHub OAuth (login/callback with signed state cookie, open-redirect-safe `next`), encrypted token storage, one-time exchange code, JWT access + rotating refresh cookie, logout revokes all sessions, `/api/me`; frontend AuthProvider (silent refresh, single-flight, 401 retry), login/callback pages, RequireAuth, user menu, settings GitHub status. Tests: 58 backend, 33 frontend.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
 
 ## Known issues / TODOs / blockers
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 2)
-1. `apps/accounts`: GitHub OAuth login/callback views (httpx), state param in a signed cookie, user upsert.
-2. Fernet encryption helper (`TOKEN_ENCRYPTION_KEY`, MultiFernet) and add it to `.env.example`.
-3. One-time exchange code (cache, 60 s), then issue JWT access + refresh (httpOnly cookie), `/api/auth/refresh`, `/api/auth/logout`, `/api/me`.
-4. Frontend: AuthProvider (access token in memory, silent refresh), login button, `/auth/callback` page, protected routes, dashboard skeleton.
-5. Tests with mocked GitHub.
+## Next steps (Phase 3)
+1. `apps/repos`: Repository, UserRepo, IngestionJob models (+ migrations); `POST /api/repos` (URL validation, GitHub resolve of default branch/HEAD SHA/size/private via user token), list/detail.
+2. Cache by (url_normalized, commit_sha): link the user to an existing repo instantly.
+3. `apps/ingestion`: sandboxed shallow clone (limits 200 MB / 5,000 files / 500 KB), filter (+ .gitignore via pathspec), detect languages/frameworks, tree-sitter parse (py/js/ts/tsx/java/go), chunk, depgraph; store files/blobs/chunks/edges via PyMongo.
+4. Progress: steps in Mongo + Redis pub/sub; async SSE view `GET /api/repos/{id}/job/stream`.
+5. Frontend: create flow from landing/dashboard, ingestion progress page, file tree + Shiki CodeViewer.
+6. Fixture repos under `backend/tests/fixtures/repos/` and tests.
+- To test real sign-in locally: create a GitHub OAuth App (callback `http://localhost:5173/api/auth/github/callback`) and set `GITHUB_CLIENT_ID/SECRET` + `TOKEN_ENCRYPTION_KEYS` in `.env`.
 
 ## Gotchas
 - **Local-only tooling files** are ignored through `.git/info/exclude`, never via the shared `.gitignore`.
@@ -92,4 +101,5 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: **Phase 2 complete**: OAuth/JWT/encryption backend + frontend auth; verified the login redirect round-trip through the Vite proxy in the running stack.
 - 2026-10-01: First local `docker compose up` verified (all services healthy, beat→worker health probe, set_llm_url in container). Backend host port moved to 8010 (8000 used by another local project); all host ports configurable.

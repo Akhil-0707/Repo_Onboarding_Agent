@@ -20,13 +20,13 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] GitHub Actions CI (ruff, black, pytest, eslint, prettier, tsc, vitest)
 - [x] Lint + tests green, commit, push
 
-## Phase 2 — GitHub OAuth, JWT, users, dashboard skeleton
-- [ ] GitHub OAuth login/callback, one-time exchange code, user upsert
-- [ ] Fernet-encrypted GitHub token at rest (MultiFernet), never logged
-- [ ] JWT access (memory) + refresh (httpOnly cookie) with rotation; `/api/me`, logout
-- [ ] Frontend auth context, login button, callback page, protected routes, silent refresh
-- [ ] Dashboard skeleton (empty/loading/error states)
-- [ ] Tests (OAuth flow with mocked GitHub, token encryption, JWT endpoints, auth components)
+## Phase 2 — GitHub OAuth, JWT, users, dashboard skeleton — ✅ Completed (2026-10-01)
+- [x] GitHub OAuth login/callback, one-time exchange code, user upsert
+- [x] Fernet-encrypted GitHub token at rest (MultiFernet), never logged
+- [x] JWT access (memory) + refresh (httpOnly cookie) with rotation; `/api/me`, logout (revocation via per-user `token_version`)
+- [x] Frontend auth context, login button, callback page, protected routes, silent refresh
+- [x] Dashboard skeleton (empty/loading/error states)
+- [x] Tests (OAuth flow with mocked GitHub, token encryption, JWT endpoints, auth components)
 
 ## Phase 3 — Ingestion pipeline with live progress
 - [ ] Repo create API + URL validation + GitHub resolve (default branch, HEAD SHA, size, visibility)
