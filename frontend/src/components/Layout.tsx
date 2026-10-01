@@ -13,9 +13,9 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Layout() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       <ModelBanner />
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+      <header className="z-20 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
           <NavLink to="/" className="flex items-center gap-2 font-semibold">
             <img src="/favicon.svg" alt="" className="h-7 w-7" />
@@ -35,7 +35,7 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main className="flex-1">
+      <main className="min-h-0 flex-1 overflow-auto">
         <Outlet />
       </main>
     </div>

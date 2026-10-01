@@ -9,10 +9,12 @@ import { AuthProvider } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { IngestionPage } from "./pages/IngestionPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { WorkspacePage } from "./pages/WorkspacePage";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes: RouteObject[] = [
@@ -27,6 +29,22 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "repos/:repoId",
+        element: (
+          <RequireAuth>
+            <WorkspacePage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "repos/:repoId/progress",
+        element: (
+          <RequireAuth>
+            <IngestionPage />
           </RequireAuth>
         ),
       },

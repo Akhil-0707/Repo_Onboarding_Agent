@@ -38,3 +38,15 @@ export function githubBlobUrl(
   const anchor = start ? (end && end !== start ? `#L${start}-L${end}` : `#L${start}`) : "";
   return `https://github.com/${repo.owner}/${repo.name}/blob/${commitSha}/${encodedPath}${anchor}`;
 }
+
+/** Point a GitHub file URL at a line range (``#L5`` or ``#L5-L9``). */
+export function githubRangeLink(
+  fileUrl: string,
+  range: { start: number; end: number } | null,
+): string {
+  const base = fileUrl.split("#")[0] ?? fileUrl;
+  if (!range) return base;
+  return range.start === range.end
+    ? `${base}#L${range.start}`
+    : `${base}#L${range.start}-L${range.end}`;
+}

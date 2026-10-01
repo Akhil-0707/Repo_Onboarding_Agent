@@ -22,3 +22,8 @@
     @apply outline-2 outline-offset-2 outline-indigo-500;
   }
 }
+
+/* Shiki dual-theme tokens: light colour inline, dark colour in --dark. */
+.dark .code-token[style] {
+  color: var(--dark) !important;
+}
