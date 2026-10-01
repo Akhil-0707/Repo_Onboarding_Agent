@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "apps.common",
     "apps.accounts",
     "apps.llm",
+    "apps.repos",
+    "apps.ingestion",
 ]
 
 MIDDLEWARE = [
@@ -204,6 +206,14 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": "/api",
 }
+
+# --- Ingestion ---------------------------------------------------------------------------
+INGEST_MAX_REPO_MB = env_int("INGEST_MAX_REPO_MB", 200)
+INGEST_MAX_FILES = env_int("INGEST_MAX_FILES", 5000)
+INGEST_MAX_FILE_KB = env_int("INGEST_MAX_FILE_KB", 500)
+INGEST_CLONE_TIMEOUT = env_int("INGEST_CLONE_TIMEOUT", 300)
+INGEST_WORKDIR = env("INGEST_WORKDIR", "")  # empty: system temp dir
+GITHUB_API_URL = env("GITHUB_API_URL", "https://api.github.com")
 
 # --- LLM (self-hosted, OpenAI-compatible) ------------------------------------------------
 # These are defaults; runtime overrides live in the ``runtime_settings`` collection

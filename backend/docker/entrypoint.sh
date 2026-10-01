@@ -6,6 +6,7 @@ role="${1:-web}"
 case "$role" in
   web)
     python manage.py migrate --noinput
+    python manage.py ensure_indexes
     exec uvicorn config.asgi:application --host 0.0.0.0 --port 8000 \
       ${UVICORN_RELOAD:+--reload} --proxy-headers
     ;;
