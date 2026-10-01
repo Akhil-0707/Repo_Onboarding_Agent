@@ -1,6 +1,6 @@
 # RepoGuide — Phase Plan
 
-Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Completed (date, commit)` when every task under it is done.
+Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Completed (date, commit)` when every task under it is done.
 
 ---
 
@@ -50,7 +50,7 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Agent tools: list_directory, read_file, search_code, grep, get_symbol, get_dependencies, get_repo_metadata
 - [x] Tests (RRF, tools against fixture data, in-memory search backend)
 
-## Phase 5 — Analysis agent: Overview, Start Here, Glossary
+## Phase 5 — Analysis agent: Overview, Start Here, Glossary — ✅ Completed (2026-10-01)
 - [x] Agent loop: tool schema validation, repair step, plain-text tool-call fallback, iteration + token budgets
 - [x] Pydantic section schemas + structured-output retry with validation errors
 - [x] Citation validator (paths/line ranges against the file index)
@@ -59,8 +59,8 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Checkpointing per section; `waiting_for_model` status; beat-driven resume
 - [x] Overview, Start Here, Glossary sections + UI tabs
 - [x] Tests: agent loop with mocked LLM, fake OpenAI server (tool calls, malformed repair, timeouts, offline/resume)
-
-- [ ] Real-model smoke test (local Ollama qwen3:4b-instruct or Kaggle), then push + CI
+- [x] Real-model smoke test (local Ollama qwen3:4b-instruct): 3/3 sections; reference repair tuned from the real output
+- [x] Push + CI
 
 ## Phase 6 — Architecture map, Guided Tour, tour mode
 - [ ] Architecture JSON graph → deterministic Mermaid render
