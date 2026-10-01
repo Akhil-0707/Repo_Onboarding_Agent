@@ -42,13 +42,13 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] File tree + content APIs; FileTree + CodeViewer (Shiki, line highlight, GitHub link)
 - [x] Fixture repos + tests (filter, chunking, parsing, depgraph, API)
 
-## Phase 4 — Embeddings, vector + full-text indexes, hybrid search
-- [ ] `EmbeddingProvider` interface; sentence-transformers (CPU) + OpenAI-compatible impls
-- [ ] Batched embedding with retry/backoff
-- [ ] `ensure_search_indexes` command (vector + Atlas Search), wait for queryable
-- [ ] Hybrid search (`$vectorSearch` + `$search`, RRF)
-- [ ] Agent tools: list_directory, read_file, search_code, grep, get_symbol, get_dependencies, get_repo_metadata
-- [ ] Tests (RRF, tools against fixture data, in-memory search backend)
+## Phase 4 — Embeddings, vector + full-text indexes, hybrid search — ✅ Completed (2026-10-01)
+- [x] `EmbeddingProvider` interface; sentence-transformers (CPU) + OpenAI-compatible impls
+- [x] Batched embedding with retry/backoff
+- [x] `ensure_search_indexes` command (vector + Atlas Search), wait for queryable
+- [x] Hybrid search (`$vectorSearch` + `$search`, RRF)
+- [x] Agent tools: list_directory, read_file, search_code, grep, get_symbol, get_dependencies, get_repo_metadata
+- [x] Tests (RRF, tools against fixture data, in-memory search backend)
 
 ## Phase 5 — Analysis agent: Overview, Start Here, Glossary
 - [ ] Agent loop: tool schema validation, repair step, plain-text tool-call fallback, iteration + token budgets

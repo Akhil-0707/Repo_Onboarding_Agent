@@ -3,9 +3,9 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 3 ✅ complete. **Next: Phase 4** (embeddings, vector + full-text indexes, hybrid search, agent tools).
-- **Last commit:** see `git log -1` (Phase 3 closed on 2026-10-01).
-- **In progress:** nothing; ready to start Phase 4.
+- **Phase:** 4 ✅ complete. **Next: Phase 5** (analysis agent: loop, structured outputs, Overview / Start Here / Glossary, checkpoint + resume).
+- **Last commit:** see `git log -1` (Phase 4 closed on 2026-10-01).
+- **In progress:** nothing; ready to start Phase 5.
 
 ## How to run
 
@@ -66,6 +66,14 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `get_db()` uses `connections[...].database` | `get_database()` returns a logging proxy in DEBUG that isn't a real `Database` |
 | Removing a repo only unlinks it from the user's dashboard | Snapshots are a shared cache keyed by commit SHA |
 | Celery worker/beat auto-reload in dev (`watchfiles`, `CELERY_RELOAD=1`) | Workers otherwise keep running stale code |
+| Embeddings: `EmbeddingProvider` (`apps/search/embeddings`), local `SentenceTransformerProvider` (bge-small, 384-d, normalised, query prefix) or `OpenAICompatibleEmbeddingProvider`; `embed_in_batches` retries with backoff | Ingestion never depends on the Kaggle model; swappable |
+| ML deps in `requirements-ml.txt` (CPU-only torch 2.14.1 from the PyTorch CPU index) — installed in the Docker image, **not** in CI/unit tests (they use `tests/fakes/embeddings.HashingEmbeddingProvider`) | Avoids ~3 GB of CUDA libs and a 1 GB install in CI |
+| Embedding vectors reused across snapshots via `embed_hash` = sha256(model + text) | Re-analysing a new commit only embeds changed chunks |
+| Pipeline is a Celery chain `ingest → embed → finalize`; each stage no-ops if the job already failed | Works identically in eager tests and real workers; no reliance on `Ignore` semantics |
+| Atlas indexes: `chunks_vector` (cosine, filter `repo_id`) + `chunks_text` with custom `code` analyzer (regexSplit + wordDelimiterGraph → `getUserById` → get/user/by/id) | Identifier-aware keyword search; verified on real mongot |
+| `ensure_search_indexes` compares definitions as a *subset* of what Atlas stores | Atlas adds defaults (`indexOptions`, `norms`); equality would rebuild on every start |
+| Hybrid search = `$vectorSearch` + `$search` merged with RRF (k=60); each side may fail and search degrades to the other | Robust while indexes build or the embedder is unavailable |
+| Agent tools (`apps/agents/tools.py`): Pydantic arg models (extra=forbid) → JSON schemas; `execute_tool` never raises and returns repair-friendly errors (incl. the expected schema); outputs capped at 8k chars and wrapped in `<repo_content>` with breakout escaping; `grep` uses RE2 (no ReDoS) | Small-model safeguards + prompt-injection defence |
 | `redis` pinned to 6.4.0 | kombu (Celery 5.6) caps redis-py below 7 |
 | TypeScript **6.0.x** (not 7) | typescript-eslint 8.71 supports TS < 6.1 |
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
@@ -82,6 +90,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
 
 ## Completed
+- **Phase 4:** embedding providers + batching/retry, embed stage chained after ingestion (vector reuse across snapshots), Atlas vector + text indexes (`ensure_search_indexes`, run at web startup), hybrid search with RRF, 7 agent tools with strict schemas. Verified in Docker on commander.js with the real bge-small model (1,086 chunks; hybrid queries ~50 ms after the first model load; whole pipeline 219 s on CPU). Tests: 143 backend (incl. real Atlas `$vectorSearch`/`$search`), 60 frontend.
 - **Phase 3:** ingestion pipeline (resolve → cache by url+SHA → sandboxed clone → filter → detect → tree-sitter parse → chunk → store files/blobs/chunks/edges) with live progress (Mongo + Redis → SSE); repo API (create/list/detail/delete, job, tree, file content with line ranges + GitHub links); frontend dashboard, live progress page, workspace (file tree, Shiki code viewer with range highlight + symbol jump, tab/chat placeholders). Fixture repos for py/ts/go/java. Verified for real in Docker on `tj/commander.js` (218 files, 424 symbols, 1,086 chunks, 136 internal edges). Tests: 116 backend, 60 frontend.
 - **Phase 2:** GitHub OAuth (login/callback with signed state cookie, open-redirect-safe `next`), encrypted token storage, one-time exchange code, JWT access + rotating refresh cookie, logout revokes all sessions, `/api/me`; frontend AuthProvider (silent refresh, single-flight, 401 retry), login/callback pages, RequireAuth, user menu, settings GitHub status. Tests: 58 backend, 33 frontend.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
@@ -90,16 +99,19 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 4)
-1. `apps/search/embeddings/`: `EmbeddingProvider` interface; `SentenceTransformerProvider` (CPU, `BAAI/bge-small-en-v1.5`, 384-d) and `OpenAICompatibleEmbeddingProvider`; batching with retry/backoff. Needs `sentence-transformers` + CPU-only torch in the **worker** image (keep the API image slim via a build arg).
-2. Embed step chained after ingestion (`embed_repository(repo_id)`), with progress reporting (add an `embed` step to `PIPELINE_STEPS`).
-3. `ensure_search_indexes` command: Atlas Vector Search index on `code_chunks.embedding` (filter `repo_id`) + Atlas Search index (content/symbol/path, `repo_id` token); wait until queryable.
-4. `apps/search/store.py` + `hybrid.py`: `$vectorSearch` + `$search`, merged with RRF (k=60); in-memory fake for unit tests.
-5. Agent tools (read-only, scoped to repo): list_directory, read_file, search_code, grep (google-re2), get_symbol, get_dependencies, get_repo_metadata, with JSON schemas.
-6. Tests: RRF, tools on fixture data, provider batching/retry.
+## Next steps (Phase 5)
+1. `apps/llm/toolcall_parse.py`: fallback parser for tool calls written as text (`<tool_call>{…}</tool_call>`, fenced JSON, bare `{"name","arguments"}`).
+2. `apps/agents/loop.py`: agent loop over `LLMClient` + `apps.agents.tools` (iteration cap, per-repo token budget, validation-error repair, text fallback), logging every call to `agent_logs` (tokens, latency, tool, args, errors).
+3. `apps/agents/schemas.py`: Pydantic models for Overview, StartHere, Glossary (+ later Architecture, Tour, starter questions); structured output via `response_format` json_schema when `LLM_GUIDED_JSON`, validate, retry with errors.
+4. `apps/agents/citations.py`: validate/repair every path + line range against the file index.
+5. Deterministic pre-analysis digest (`repo_facts.py`: README excerpt, manifests/scripts, entry points, dependency centrality).
+6. `apps/analysis`: `Analysis` model (per-section status/data/checkpoint), chain stage `analyze` before `finalize`; `ModelOfflineError` → job `waiting_for_model` + checkpoint; beat task `resume_waiting_jobs`.
+7. API `GET /api/repos/{id}/analysis/{section}`; frontend Overview / Start Here / Glossary tabs with citation chips that open the code viewer.
+8. Tests with the fake OpenAI server: tool calling, malformed-call repair, timeouts, offline → resume.
 
 ## Known follow-ups (later phases)
 - **Stale job sweeper (Phase 8):** a worker hard crash (SIGKILL/OOM) can leave a job `running`; add a beat task that fails jobs with no progress for N minutes.
+- **Warm the embedding model in the API process (Phase 7):** the first `search_code` in a process loads bge-small (~10 s).
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
 
 ## Gotchas
@@ -118,6 +130,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: **Phase 4 complete**: embeddings, Atlas vector/text indexes, hybrid search (RRF), agent tools; real-model verification in Docker.
 - 2026-10-01: **Phase 3 complete**: ingestion pipeline + live progress + workspace/code viewer; found & fixed a tree-sitter 0.26 memory-corruption bug (pinned 0.25.2); real ingestion verified in Docker.
 - 2026-10-01: History rewritten (force-push, with approval) to remove a tooling mention from an early `.gitignore`.
 - 2026-10-01: **Phase 2 complete**: OAuth/JWT/encryption backend + frontend auth; verified the login redirect round-trip through the Vite proxy in the running stack.
