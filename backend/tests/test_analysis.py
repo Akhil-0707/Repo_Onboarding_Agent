@@ -72,7 +72,7 @@ def test_full_analysis_produces_validated_sections() -> None:
     assert analysis.status == "done"
     assert analysis.model == "fake-llm"
     assert analysis.checkpoint is None
-    assert set(analysis.sections) == {"overview", "start_here", "glossary"}
+    assert set(analysis.sections) == {"overview", "architecture", "start_here", "tour", "glossary"}
 
     overview = analysis.sections["overview"]["data"]
     assert {s["path"] for s in overview["structure"]} == {"app/", "tests/"}  # imaginary/ dropped
@@ -83,6 +83,24 @@ def test_full_analysis_produces_validated_sections() -> None:
     start_here = analysis.sections["start_here"]["data"]["files"]
     paths = [f["path"] for f in start_here]
     assert "does/not/exist.py" not in paths and len(paths) == len(set(paths))
+
+    arch = analysis.sections["architecture"]["data"]
+    modules = {m["id"]: m for m in arch["modules"]}
+    assert set(modules) == {"app", "core", "tests", "db"}  # phantom/ has no real files
+    assert modules["app"]["kind"] == "entry"  # "Entry" coerced
+    assert modules["core"]["paths"] == ["app/"]  # app/ghost.py dropped
+    edges = {(e["source"], e["target"]): e for e in arch["edges"]}
+    assert set(edges) == {("app", "core"), ("core", "db"), ("tests", "core")}
+    assert edges["app", "core"]["imports"] == 2 and not edges["app", "core"]["derived"]
+    assert edges["tests", "core"]["derived"]  # proven by the dependency graph
+    assert arch["mermaid"].startswith("flowchart")
+    assert 'm_app(["Application"])' in arch["mermaid"]
+    assert "m_tests -.->" in arch["mermaid"]
+
+    tour = analysis.sections["tour"]["data"]["steps"]
+    assert [s["title"] for s in tour] == ["Start-up", "Routing", "Service"]  # ghost dropped
+    assert [s["kind"] for s in tour] == ["entry_point", "flow_trace", "flow_trace"]
+    assert (tour[2]["start_line"], tour[2]["end_line"]) == (10, 20)  # symbol beats line 99
 
     terms = {t["term"]: t for t in analysis.sections["glossary"]["data"]["terms"]}
     assert terms["UserService"]["path"] == "app/services.py"  # linked via symbol index
@@ -106,7 +124,7 @@ def test_analysis_api() -> None:
 
     body = client.get(f"/api/repos/{repo.pk}/analysis").json()
     assert body["status"] == "done"
-    assert set(body["sections"]) == {"overview", "start_here", "glossary"}
+    assert set(body["sections"]) == {"overview", "architecture", "start_here", "tour", "glossary"}
     assert body["sections"]["overview"]["data"]["summary"]
     assert body["usage"]["calls"] > 0
 
@@ -149,7 +167,7 @@ def test_offline_model_waits_then_resumes(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_model_dies_mid_analysis_and_resumes_from_checkpoint() -> None:
     # 3 calls: overview research (tool call + notes) + overview JSON. Then the model dies
-    # inside start_here research.
+    # inside the architecture research.
     dying = FakeAnalysisLLM(offline_after=4)
     set_llm_client(dying)
     repo, job = start()
@@ -157,8 +175,8 @@ def test_model_dies_mid_analysis_and_resumes_from_checkpoint() -> None:
     analysis = Analysis.objects.get(repository=repo)
     assert job.status == "waiting_for_model"
     assert analysis.section_status("overview") == "done"
-    assert analysis.section_status("start_here") == "running"
-    assert analysis.checkpoint["section"] == "start_here"
+    assert analysis.section_status("architecture") == "running"
+    assert analysis.checkpoint["section"] == "architecture"
     assert analysis.checkpoint["phase"] == "research"
     assert analysis.checkpoint["messages"][-1]["role"] == "tool"
 
@@ -169,9 +187,9 @@ def test_model_dies_mid_analysis_and_resumes_from_checkpoint() -> None:
     job.refresh_from_db()
     assert job.status == "done" and analysis.status == "done"
     assert "overview" not in healthy.sections_answered  # finished sections are never redone
-    assert healthy.sections_answered == ["start_here", "glossary"]
-    # start_here research resumed from the checkpoint: no new metadata tool call needed.
-    assert healthy.calls == 1 + 1 + 3  # start_here notes + JSON, glossary research + JSON
+    assert healthy.sections_answered == ["architecture", "start_here", "tour", "glossary"]
+    # Architecture research resumed from the checkpoint: no new metadata tool call needed.
+    assert healthy.calls == 1 + 1 + 3 * 3  # notes + JSON, then 3 sections x (tool, notes, JSON)
 
 
 def test_waiting_too_long_gives_up(monkeypatch: pytest.MonkeyPatch, settings: Any) -> None:

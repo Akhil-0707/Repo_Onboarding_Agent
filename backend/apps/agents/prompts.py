@@ -36,6 +36,19 @@ RESEARCH = {
         "important modules and configuration names that a newcomer must know. Find where each "
         "one is defined (get_symbol is useful)."
     ),
+    "architecture": (
+        "Research the ARCHITECTURE: group the code into 3-10 logical modules (by directory or "
+        "responsibility), what each one is responsible for, which modules use which, the entry "
+        "points, and any external systems (databases, APIs, queues, CLIs). get_dependencies and "
+        "list_directory are useful."
+    ),
+    "tour": (
+        "Research a GUIDED TOUR for a newcomer: 8-12 stops in reading order, from the entry point "
+        "through the core logic. Pick ONE concrete flow (one HTTP request, one CLI command, one "
+        "job) and follow it through the code hop by hop: for every hop note the file, the "
+        "function and its line numbers (read_file shows line numbers, get_symbol finds "
+        "definitions)."
+    ),
 }
 
 STRUCTURE = {
@@ -57,6 +70,24 @@ STRUCTURE = {
         "Write the Glossary: 8-25 project-specific terms (not generic programming terms). Each "
         "has a 'kind', a 1-2 sentence 'definition', and 'path' (+ lines if known) where it is "
         "defined; use null when it is not defined in one place."
+    ),
+    "architecture": (
+        "Write the Architecture as a graph. 'summary': 2-4 sentences on how the system is "
+        "organised and how a request or command flows through it. 'modules': 3-10 logical "
+        "components, each with a short unique lowercase 'id' (e.g. 'api'), a 'name', a 'kind' "
+        "(entry, core, service, data, ui, config, util, external, test or other), 'paths' "
+        "(directories ending with '/' or files, empty only for kind 'external') and a one-line "
+        "'description'. 'edges': 'source' uses 'target' (module ids), with a short verb-phrase "
+        "'label'.\n\nInternal imports (precomputed from the code):\n{dependency_summary}"
+    ),
+    "tour": (
+        "Write the Guided Tour: an 'intro' (1-3 sentences on what the tour covers) and "
+        "{min_steps}-{max_steps} 'steps' in reading order. Each step has a short 'title', a "
+        "'kind' (intro, entry_point, flow_trace, core_logic, data_model, config, testing or "
+        "other), the 'path', 'start_line'/'end_line' of the code to look at when known, the "
+        "'symbol' (function or class) it focuses on if any, and a 2-5 sentence 'explanation'. "
+        'At least one step MUST have kind "flow_trace": consecutive flow_trace steps follow one '
+        "real request or command through the code, hop by hop."
     ),
 }
 

@@ -13,9 +13,10 @@ from typing import Any
 
 from django.conf import settings
 from django.utils import timezone
+from pydantic import BaseModel
 
-from apps.agents.citations import FileIndex
-from apps.agents.digest import build_digest
+from apps.agents.citations import FileIndex, RefReport
+from apps.agents.digest import build_digest, internal_edges
 from apps.agents.loop import AgentLogger, AgentLoop, BudgetExceededError, TokenBudget, Usage
 from apps.agents.prompts import research_messages, structure_messages
 from apps.agents.structured import StructuredOutputError, generate_structured
@@ -49,7 +50,13 @@ def _file_index(ctx: ToolContext) -> FileIndex:
         doc["path"]: doc.get("symbols", [])
         for doc in collection(FILES).find({"repo_id": ctx.repository.pk}, {"path": 1, "symbols": 1})
     }
-    return FileIndex(ctx.files, symbols, repo_name=ctx.repository.full_name, content=ctx.content)
+    return FileIndex(
+        ctx.files,
+        symbols,
+        repo_name=ctx.repository.full_name,
+        content=ctx.content,
+        edges=internal_edges(ctx.repo_id),
+    )
 
 
 class AnalysisRunner:
@@ -222,7 +229,17 @@ class AnalysisRunner:
             notes = result.final_text
             self._checkpoint(spec.key, "structure", notes=notes)
 
-        output = generate_structured(
+        result: dict[str, Any] = {}
+
+        def accept(output: BaseModel) -> None:
+            # Verify references now so unusable output is sent back to the model for a fix.
+            data = output.model_dump(mode="json")
+            report = spec.repair(data, index)
+            if spec.check:
+                spec.check(data)
+            result.update(data=data, report=report)
+
+        generate_structured(
             self.llm,
             structure_messages(spec.key, digest, notes, spec.schema, **spec.params(ctx)),
             spec.schema,
@@ -231,11 +248,10 @@ class AnalysisRunner:
             usage=self.usage,
             agent_logger=self.agent_logger,
             purpose=spec.key,
+            accept=accept,
         )
-        data = output.model_dump(mode="json")
-        report = spec.repair(data, index)
-        if spec.check:
-            spec.check(data)
+        data: dict[str, Any] = result["data"]
+        report: RefReport = result["report"]
         self._set_section(spec.key, status="done", data=data, error="", references=report.as_dict())
         self._save(checkpoint=None)
         self.reporter.log(

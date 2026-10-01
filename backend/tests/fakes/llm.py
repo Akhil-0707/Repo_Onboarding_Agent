@@ -95,6 +95,43 @@ def section_answer(section: str, prompt: str) -> dict[str, Any]:
                 {"path": f"./{entries[0]}", "reason": "Duplicate written differently."},
             ]
         }
+    if section == "architecture":
+        return {
+            "summary": "A Flask app: the entry point builds the app and routes call services.",
+            "modules": [
+                {"id": "App", "name": "Application", "kind": "Entry", "paths": [entries[0]],
+                 "description": "Creates and runs the app"},
+                {"id": "core", "name": "Core package", "kind": "core",
+                 "paths": ["app/", "app/ghost.py"], "description": "Routes and services"},
+                {"id": "tests", "name": "Tests", "kind": "test", "paths": ["tests/"],
+                 "description": "Unit tests"},
+                {"id": "db", "name": "User store", "kind": "external", "paths": [],
+                 "description": "Where users live"},
+                {"id": "phantom", "name": "Phantom", "kind": "core", "paths": ["phantom/"],
+                 "description": "Does not exist"},
+            ],
+            "edges": [
+                {"source": "App", "target": "Core package", "label": "registers routes"},
+                {"source": "core", "target": "db", "label": "stores users"},
+                {"source": "core", "target": "phantom", "label": "dropped"},
+                {"source": "core", "target": "core", "label": "self loop"},
+            ],
+        }  # fmt: skip
+    if section == "tour":
+        return {
+            "intro": "Follow one HTTP request from app start-up to the user service.",
+            "steps": [
+                {"title": "Start-up", "kind": "entry_point", "path": entries[0],
+                 "explanation": "create_app builds the Flask app and registers the routes."},
+                {"title": "Routing", "kind": "Flow Trace", "path": "app/routes.py",
+                 "explanation": "A request for /users lands in the route registered here."},
+                {"title": "Service", "kind": "flow_trace", "path": "app/services.py",
+                 "symbol": "UserService", "start_line": 99, "end_line": 99,
+                 "explanation": "The route asks UserService for the users it stores."},
+                {"title": "Ghost", "kind": "core_logic", "path": "nope/ghost.py",
+                 "explanation": "A hallucinated stop that must be dropped."},
+            ],
+        }  # fmt: skip
     if section == "glossary":
         return {
             "terms": [
