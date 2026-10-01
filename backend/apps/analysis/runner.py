@@ -15,8 +15,8 @@ from django.conf import settings
 from django.utils import timezone
 from pydantic import BaseModel
 
-from apps.agents.citations import FileIndex, RefReport
-from apps.agents.digest import build_digest, internal_edges
+from apps.agents.citations import FileIndex, RefReport, load_file_index
+from apps.agents.digest import build_digest
 from apps.agents.loop import AgentLogger, AgentLoop, BudgetExceededError, TokenBudget, Usage
 from apps.agents.prompts import research_messages, structure_messages
 from apps.agents.structured import StructuredOutputError, generate_structured
@@ -24,7 +24,6 @@ from apps.agents.tools import ToolContext
 from apps.analysis.models import Analysis, AnalysisStatus
 from apps.analysis.sections import SECTIONS, SectionCheckError, SectionSpec
 from apps.common.logging import get_logger
-from apps.ingestion.index_store import FILES, collection
 from apps.ingestion.pipeline import job_is_failed
 from apps.ingestion.progress import JobReporter
 from apps.llm.client import LLMClient, get_llm_client
@@ -43,20 +42,6 @@ def model_available() -> bool:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _file_index(ctx: ToolContext) -> FileIndex:
-    symbols = {
-        doc["path"]: doc.get("symbols", [])
-        for doc in collection(FILES).find({"repo_id": ctx.repository.pk}, {"path": 1, "symbols": 1})
-    }
-    return FileIndex(
-        ctx.files,
-        symbols,
-        repo_name=ctx.repository.full_name,
-        content=ctx.content,
-        edges=internal_edges(ctx.repo_id),
-    )
 
 
 class AnalysisRunner:
@@ -130,7 +115,7 @@ class AnalysisRunner:
 
         ctx = ToolContext(self.repo)
         digest = build_digest(ctx)
-        index = _file_index(ctx)
+        index = load_file_index(ctx)
         total = len(SECTIONS)
         for position, spec in enumerate(SECTIONS):
             if self.analysis.section_status(spec.key) == "done":

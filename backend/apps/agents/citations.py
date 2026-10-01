@@ -8,9 +8,12 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from apps.agents.repo_facts import entry_point_candidates
+
+if TYPE_CHECKING:
+    from apps.agents.tools import ToolContext
 
 _LINE_SUFFIX = re.compile(r"[:#]L?(\d+)(?:-L?(\d+))?$")
 
@@ -151,6 +154,24 @@ class FileIndex:
             if s["name"].lower() == wanted
         ]
         return hits[0] if len(hits) == 1 else None
+
+
+def load_file_index(ctx: ToolContext) -> FileIndex:
+    """The verified file list, symbols, contents and import edges of ``ctx``'s repository."""
+    from apps.agents.digest import internal_edges
+    from apps.ingestion.index_store import FILES, collection
+
+    symbols = {
+        doc["path"]: doc.get("symbols", [])
+        for doc in collection(FILES).find({"repo_id": ctx.repository.pk}, {"path": 1, "symbols": 1})
+    }
+    return FileIndex(
+        ctx.files,
+        symbols,
+        repo_name=ctx.repository.full_name,
+        content=ctx.content,
+        edges=internal_edges(ctx.repo_id),
+    )
 
 
 def _fix_file_ref(item: dict[str, Any], index: FileIndex, report: RefReport) -> bool:
