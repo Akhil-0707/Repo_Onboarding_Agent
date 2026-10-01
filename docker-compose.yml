@@ -67,10 +67,18 @@ services:
   worker:
     <<: *backend
     command: ["worker"]
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-repoguide}:${MONGO_ROOT_PASSWORD:-repoguide}@mongo:27017/?directConnection=true&authSource=admin
+      REDIS_URL: redis://redis:6379/0
+      CELERY_RELOAD: "1"
 
   beat:
     <<: *backend
     command: ["beat"]
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-repoguide}:${MONGO_ROOT_PASSWORD:-repoguide}@mongo:27017/?directConnection=true&authSource=admin
+      REDIS_URL: redis://redis:6379/0
+      CELERY_RELOAD: "1"
 
   frontend:
     build:
