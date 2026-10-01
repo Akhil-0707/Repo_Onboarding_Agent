@@ -40,6 +40,76 @@ export function makeAnalysis(overrides: Partial<Analysis> = {}): Analysis {
           },
         ],
       }),
+      architecture: done({
+        summary: "The entry point builds a Flask app whose routes call an in-memory service.",
+        modules: [
+          {
+            id: "app",
+            name: "Application",
+            kind: "entry",
+            paths: ["app/main.py"],
+            description: "Creates and runs the app.",
+          },
+          {
+            id: "core",
+            name: "Core",
+            kind: "core",
+            paths: ["app/"],
+            description: "Routes and services.",
+          },
+          {
+            id: "store",
+            name: "User store",
+            kind: "external",
+            paths: [],
+            description: "Where users live.",
+          },
+        ],
+        edges: [
+          {
+            source: "app",
+            target: "core",
+            label: "registers routes",
+            derived: false,
+            imports: 2,
+          },
+          { source: "core", target: "store", label: null, derived: true, imports: 1 },
+        ],
+        mermaid:
+          'flowchart LR\n    m_app(["Application"])\n    m_core["Core"]\n    m_app --> m_core',
+      }),
+      tour: done({
+        intro: "Follow one request from start-up to the user service.",
+        steps: [
+          {
+            title: "Start-up",
+            kind: "entry_point",
+            path: "app/main.py",
+            start_line: 8,
+            end_line: 11,
+            symbol: "create_app",
+            explanation: "create_app builds the Flask app and registers the routes.",
+          },
+          {
+            title: "Routing",
+            kind: "flow_trace",
+            path: "app/routes.py",
+            start_line: null,
+            end_line: null,
+            symbol: null,
+            explanation: "A request for /users lands in the route registered here.",
+          },
+          {
+            title: "Service",
+            kind: "flow_trace",
+            path: "app/services.py",
+            start_line: 10,
+            end_line: 21,
+            symbol: "UserService",
+            explanation: "The route asks UserService for the stored users.",
+          },
+        ],
+      }),
       glossary: done({
         terms: [
           {

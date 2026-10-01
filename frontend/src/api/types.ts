@@ -158,13 +158,68 @@ export interface Glossary {
   terms: GlossaryTerm[];
 }
 
+export type ModuleKind =
+  "entry" | "core" | "service" | "data" | "ui" | "config" | "util" | "external" | "test" | "other";
+
+export interface ArchitectureModule {
+  id: string;
+  name: string;
+  kind: ModuleKind;
+  paths: string[];
+  description: string;
+}
+
+export interface ArchitectureEdge {
+  source: string;
+  target: string;
+  label: string | null;
+  /** Added from the import graph rather than written by the model. */
+  derived: boolean;
+  imports: number;
+}
+
+export interface Architecture {
+  summary: string;
+  modules: ArchitectureModule[];
+  edges: ArchitectureEdge[];
+  /** Rendered on the server from the verified graph. */
+  mermaid: string;
+}
+
+export type TourStepKind =
+  | "intro"
+  | "entry_point"
+  | "flow_trace"
+  | "core_logic"
+  | "data_model"
+  | "config"
+  | "testing"
+  | "other";
+
+export interface TourStep {
+  title: string;
+  kind: TourStepKind;
+  path: string;
+  start_line: number | null;
+  end_line: number | null;
+  symbol: string | null;
+  explanation: string;
+}
+
+export interface Tour {
+  intro: string;
+  steps: TourStep[];
+}
+
 export interface Analysis {
   status: AnalysisStatus;
   model: string;
   error: string;
   sections: {
     overview: SectionState<Overview>;
+    architecture: SectionState<Architecture>;
     start_here: SectionState<StartHere>;
+    tour: SectionState<Tour>;
     glossary: SectionState<Glossary>;
   };
   usage: {
