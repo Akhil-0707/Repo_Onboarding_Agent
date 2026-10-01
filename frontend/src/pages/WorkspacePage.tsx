@@ -8,10 +8,12 @@ import { CodeViewer } from "../components/CodeViewer";
 import type { LineRange } from "../components/CodeViewer";
 import { FileTree } from "../components/FileTree";
 import { LanguageBar } from "../components/LanguageBar";
+import { ArchitectureSection } from "../components/sections/ArchitectureSection";
 import { GlossarySection } from "../components/sections/GlossarySection";
 import { OverviewSection } from "../components/sections/OverviewSection";
 import { SectionShell } from "../components/sections/SectionShell";
 import { StartHereSection } from "../components/sections/StartHereSection";
+import { TourSection } from "../components/sections/TourSection";
 import { StatusBadge } from "../components/StatusBadge";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateViews";
 import { formatRange, parseRange } from "../lib/range";
@@ -250,13 +252,23 @@ export function WorkspacePage() {
                     {(data) => <GlossarySection data={data} onOpen={openRef} />}
                   </SectionShell>
                 )}
-                {(tab === "architecture" || tab === "tour") && (
-                  <div className="p-6">
-                    <EmptyState
-                      title="Not generated yet"
-                      description="This section is not part of the analysis yet."
-                    />
-                  </div>
+                {tab === "architecture" && (
+                  <SectionShell
+                    title="Architecture"
+                    section={analysis.data?.sections.architecture}
+                    analysisStatus={analysis.data?.status}
+                  >
+                    {(data) => <ArchitectureSection data={data} onOpen={openRef} />}
+                  </SectionShell>
+                )}
+                {tab === "tour" && (
+                  <SectionShell
+                    title="Guided Tour"
+                    section={analysis.data?.sections.tour}
+                    analysisStatus={analysis.data?.status}
+                  >
+                    {(data) => <TourSection repoId={repoId} data={data} onOpen={openRef} />}
+                  </SectionShell>
                 )}
               </div>
             </>

@@ -14,6 +14,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { TourPage } from "./pages/TourPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -37,6 +38,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <WorkspacePage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "repos/:repoId/tour",
+        element: (
+          <RequireAuth>
+            <TourPage />
           </RequireAuth>
         ),
       },

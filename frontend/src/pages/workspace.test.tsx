@@ -7,6 +7,14 @@ import { makeAnalysis, makeRepo } from "../test/fixtures";
 import { jsonResponse, mockFetch, renderWithProviders } from "../test/utils";
 import { WorkspacePage } from "./WorkspacePage";
 
+const mermaid = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  render: vi.fn(async (id: string, _source: string) => ({
+    svg: `<svg><g class="node" id="${id}-flowchart-m_core-1"><text>Core</text></g></svg>`,
+  })),
+}));
+vi.mock("mermaid", () => ({ default: mermaid }));
+
 vi.mock("../lib/highlight", async (original) => {
   const actual = await original<typeof import("../lib/highlight")>();
   return { ...actual, highlight: async (code: string) => actual.plainTokens(code) };
@@ -95,6 +103,49 @@ describe("WorkspacePage", () => {
     await userEvent.type(screen.getByLabelText("Filter glossary"), "environment");
     expect(screen.queryByText("UserService")).not.toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
+  });
+
+  it("draws the architecture with strict Mermaid and highlights clicked modules", async () => {
+    mockBackend();
+    renderWorkspace("/repos/repo1?tab=architecture");
+
+    const diagram = await screen.findByRole("img", { name: /Architecture diagram with 3 modules/ });
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ securityLevel: "strict", startOnLoad: false }),
+    );
+    expect(mermaid.render.mock.calls[0]?.[1]).toContain('m_app(["Application"])');
+    expect(screen.getByText(/routes call an in-memory service/)).toBeInTheDocument();
+    expect(screen.getByText(/registers routes/)).toBeInTheDocument();
+    expect(screen.getByText("(1 import)")).toBeInTheDocument();
+
+    const core = screen.getByRole("heading", { name: "Core" }).closest("li");
+    expect(core).not.toHaveAttribute("aria-current");
+    await userEvent.click(within(diagram).getByText("Core"));
+    expect(core).toHaveAttribute("aria-current", "true");
+
+    // Directory chips are not clickable; file chips open the viewer.
+    expect(within(core as HTMLElement).getByRole("button", { name: /app\// })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /app\/main\.py/ }));
+    expect(await screen.findByText("app/main.py line 30")).toBeInTheDocument();
+  });
+
+  it("lists tour stops and links into tour mode", async () => {
+    mockBackend();
+    renderWorkspace("/repos/repo1?tab=tour");
+
+    const stops = within(await screen.findByRole("list", { name: "Tour stops" })).getAllByRole(
+      "listitem",
+    );
+    expect(stops).toHaveLength(3);
+    expect(stops[1]).toHaveTextContent("Flow trace");
+    expect(screen.getByRole("link", { name: "Start the tour →" })).toHaveAttribute(
+      "href",
+      "/repos/repo1/tour",
+    );
+    expect(screen.getByRole("link", { name: "Service" })).toHaveAttribute(
+      "href",
+      "/repos/repo1/tour?step=3",
+    );
   });
 
   it("explains that the analysis is waiting for the model", async () => {
