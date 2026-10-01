@@ -182,3 +182,18 @@ def test_index_definition_matching_tolerates_atlas_defaults() -> None:
     }
     assert matches(desired, stored)
     assert not matches(vector_index_definition(384), vector_index_definition(768))
+
+
+def test_embedding_warmup_runs_in_the_background(monkeypatch: pytest.MonkeyPatch) -> None:
+    from apps.search import warmup
+
+    queries: list[str] = []
+
+    class Recorder:
+        def embed_query(self, text: str) -> list[float]:
+            queries.append(text)
+            raise RuntimeError("no model here")  # failures are logged, never raised
+
+    monkeypatch.setattr(warmup, "get_embedding_provider", Recorder)
+    warmup.warm_up_embeddings().join(timeout=5)
+    assert queries == ["warm up"]
