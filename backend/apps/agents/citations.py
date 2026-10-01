@@ -6,6 +6,7 @@ from __future__ import annotations
 import posixpath
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,12 +29,19 @@ class RefReport:
         }
 
 
+def term_key(name: str, keep_case: bool = False) -> str:
+    """``Command.parse()`` -> ``parse``: the identifier a symbol lookup should match."""
+    key = name.split(".")[-1].split("(")[0].strip()
+    return key if keep_case else key.lower()
+
+
 class FileIndex:
     def __init__(
         self,
         files: list[dict[str, Any]],
         symbols: dict[str, list[dict[str, Any]]] | None = None,
         repo_name: str = "",
+        content: Callable[[str], str | None] | None = None,
     ) -> None:
         self.lines = {f["path"]: max(1, int(f.get("lines") or 1)) for f in files}
         self.lower = {p.lower(): p for p in self.lines}
@@ -47,6 +55,8 @@ class FileIndex:
                 self.dirs.add(directory)
         self.symbols = symbols or {}
         self.repo_name = repo_name.lower()
+        self._content = content
+        self._text: dict[str, list[str] | None] = {}
 
     # --- normalisation -------------------------------------------------------------------
     def _clean(self, raw: str) -> tuple[str, int | None, int | None]:
@@ -98,17 +108,38 @@ class FileIndex:
             start, end = end, start
         if start > total:
             return None, None  # nonsense range: fall back to the whole file
+        if start == end == 1 and total > 1:
+            return None, None  # a lone "1-1" is filler small models write for "the whole file"
         return max(1, start), min(end, total)
 
+    def lines_of(self, path: str) -> list[str] | None:
+        if self._content is None:
+            return None
+        if path not in self._text:
+            text = self._content(path)
+            self._text[path] = text.splitlines() if text is not None else None
+        return self._text[path]
+
+    def mentions(self, path: str, start: int, end: int, name: str, slack: int = 2) -> bool | None:
+        """Whether ``name`` appears near lines ``start``-``end``; None when contents are unknown."""
+        lines = self.lines_of(path)
+        if lines is None:
+            return None
+        window = "\n".join(lines[max(0, start - 1 - slack) : end + slack]).lower()
+        return term_key(name) in window
+
     def symbol_range(self, path: str, name: str) -> tuple[int, int] | None:
-        wanted = name.split(".")[-1].split("(")[0].strip().lower()
-        for symbol in self.symbols.get(path, []):
-            if symbol["name"].lower() == wanted:
-                return int(symbol["start_line"]), int(symbol["end_line"])
-        return None
+        """Exact-case matches win (``command`` the method over ``Command`` the class)."""
+        symbols = self.symbols.get(path, [])
+        exact = term_key(name, keep_case=True)
+        loose = exact.lower()
+        match = next((s for s in symbols if s["name"] == exact), None) or next(
+            (s for s in symbols if s["name"].lower() == loose), None
+        )
+        return (int(match["start_line"]), int(match["end_line"])) if match else None
 
     def find_symbol(self, name: str) -> tuple[str, int, int] | None:
-        wanted = name.split(".")[-1].split("(")[0].strip().lower()
+        wanted = term_key(name)
         hits = [
             (path, int(s["start_line"]), int(s["end_line"]))
             for path, symbols in self.symbols.items()
@@ -172,6 +203,20 @@ def repair_start_here(data: dict[str, Any], index: FileIndex) -> RefReport:
     return report
 
 
+def _fix_definition_lines(item: dict[str, Any], index: FileIndex, report: RefReport) -> None:
+    """The symbol index beats guessed line numbers; unverifiable guesses are dropped."""
+    path, start, end = item["path"], item.get("start_line"), item.get("end_line")
+    name = item.get("symbol") or item.get("term") or ""
+    found = index.symbol_range(path, name) if name else None
+    if found:
+        if found != (start, end):
+            report.repaired += 1
+        item["start_line"], item["end_line"] = found
+    elif start is not None and name and index.mentions(path, start, end or start, name) is False:
+        item["start_line"] = item["end_line"] = None
+        report.repaired += 1
+
+
 def repair_glossary(data: dict[str, Any], index: FileIndex) -> RefReport:
     """Terms are kept even without a location; locations are verified or looked up."""
     report = RefReport()
@@ -185,10 +230,8 @@ def repair_glossary(data: dict[str, Any], index: FileIndex) -> RefReport:
         if term.get("path"):
             if not _fix_file_ref(term, index, report):
                 term.update(path=None, start_line=None, end_line=None)
-            elif term.get("start_line") is None:
-                found = index.symbol_range(term["path"], term["term"])
-                if found:
-                    term["start_line"], term["end_line"] = found
+            else:
+                _fix_definition_lines(term, index, report)
         else:
             found_anywhere = index.find_symbol(term["term"])
             if found_anywhere:

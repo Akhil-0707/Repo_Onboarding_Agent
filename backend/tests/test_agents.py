@@ -367,3 +367,44 @@ def test_repair_glossary_links_terms_to_definitions(index: FileIndex) -> None:
     user, order = data["terms"]
     assert (user["path"], user["start_line"], user["end_line"]) == ("src/app/models.py", 10, 30)
     assert order["path"] is None  # hallucinated location removed, term kept
+
+
+def test_clamp_drops_filler_first_line_ranges(index: FileIndex) -> None:
+    assert index.clamp("README.md", 1, 1) == (None, None)
+    assert index.clamp("README.md", 1, 4) == (1, 4)
+    assert index.clamp("README.md", 3, 3) == (3, 3)
+
+
+def test_symbol_lookup_prefers_exact_case() -> None:
+    symbols = {"cmd.js": [{"name": "Command", "start_line": 1, "end_line": 900},
+                          {"name": "command", "start_line": 40, "end_line": 60}]}  # fmt: skip
+    index = FileIndex([{"path": "cmd.js", "lines": 900}], symbols)
+    assert index.symbol_range("cmd.js", "command()") == (40, 60)
+    assert index.symbol_range("cmd.js", "Command") == (1, 900)
+    assert index.symbol_range("cmd.js", "COMMAND") == (1, 900)
+
+
+def test_glossary_prefers_symbol_ranges_and_drops_unverifiable_lines() -> None:
+    models = "\n".join(f"line {n}" for n in range(1, 121)).replace("line 50", "TAX_RATE = 0.2")
+    index = FileIndex(FILES, SYMBOLS, content={"src/app/models.py": models}.get)
+    data = {
+        "terms": [
+            # Guessed lines for a real symbol: replaced by the symbol's range.
+            {"term": "User", "kind": "class", "definition": "d", "path": "src/app/models.py",
+             "start_line": 120, "end_line": 120},
+            # A constant really defined at the cited line: kept.
+            {"term": "TAX_RATE", "kind": "config", "definition": "d",
+             "path": "src/app/models.py", "start_line": 50, "end_line": 50},
+            # Invented line that does not mention the term: range dropped, path kept.
+            {"term": "Checkout", "kind": "concept", "definition": "d",
+             "path": "src/app/models.py", "start_line": 90, "end_line": 90},
+        ]
+    }  # fmt: skip
+    report = repair_glossary(data, index)
+    lines = [(t["term"], t["path"], t["start_line"], t["end_line"]) for t in data["terms"]]
+    assert lines == [
+        ("User", "src/app/models.py", 10, 30),
+        ("TAX_RATE", "src/app/models.py", 50, 50),
+        ("Checkout", "src/app/models.py", None, None),
+    ]
+    assert report.repaired == 2

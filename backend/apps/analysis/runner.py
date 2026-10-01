@@ -49,7 +49,7 @@ def _file_index(ctx: ToolContext) -> FileIndex:
         doc["path"]: doc.get("symbols", [])
         for doc in collection(FILES).find({"repo_id": ctx.repository.pk}, {"path": 1, "symbols": 1})
     }
-    return FileIndex(ctx.files, symbols, repo_name=ctx.repository.full_name)
+    return FileIndex(ctx.files, symbols, repo_name=ctx.repository.full_name, content=ctx.content)
 
 
 class AnalysisRunner:
