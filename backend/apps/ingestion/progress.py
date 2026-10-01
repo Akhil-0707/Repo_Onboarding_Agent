@@ -31,6 +31,7 @@ PIPELINE_STEPS: list[tuple[str, str, int]] = [
     ("parse", "Parse code", 25),
     ("chunk", "Chunk code", 15),
     ("store", "Save code index", 10),
+    ("embed", "Generate embeddings", 25),
 ]
 
 
@@ -69,7 +70,13 @@ class JobReporter:
         self.job_id = str(job_id)
         self._oid = ObjectId(self.job_id)
         self._weights = {key: weight for key, _, weight in PIPELINE_STEPS}
-        self._done: dict[str, float] = {}
+        # Stages run in separate tasks: resume overall progress from what is stored.
+        doc = get_db()[JOBS].find_one({"_id": self._oid}, {"steps.key": 1, "steps.status": 1})
+        self._done: dict[str, float] = {
+            step["key"]: 1.0
+            for step in (doc or {}).get("steps", [])
+            if step.get("status") in {"done", "skipped"}
+        }
 
     # -- low level ----------------------------------------------------------------------------
     def _jobs(self) -> Any:

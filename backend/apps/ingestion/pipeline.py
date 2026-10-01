@@ -2,7 +2,8 @@
 
 All steps that need the working tree run in one task on one worker (the clone lives in a
 local temp dir). Later stages that only need MongoDB (embeddings, analysis) are chained as
-separate Celery tasks. The clone is always deleted, and repository code is never executed.
+separate Celery tasks (see ``apps.ingestion.tasks``); ``finalize`` marks the snapshot ready.
+The clone is always deleted, and repository code is never executed.
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ def _workdir() -> Path:
 
 
 def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
-    """Run the pipeline for ``job_id``. Returns the repository id (for task chaining)."""
+    """Run the clone-dependent stages for ``job_id``. Returns the repository id."""
     job = IngestionJob.objects.select_related("repository", "user").get(pk=job_id)
     repo = job.repository
     reporter = JobReporter(job_id)
@@ -81,7 +82,6 @@ def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
         stats = _store(work, repo, detection, reporter)
 
         Repository.objects.filter(pk=repo.pk).update(
-            status=RepoStatus.READY,
             stats=stats,
             languages=detection.language_percentages(),
             frameworks=detection.frameworks,
@@ -92,9 +92,7 @@ def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
                 "go_module": detection.go_module,
                 "primary_language": detection.primary_language,
             },
-            ingested_at=timezone.now(),
         )
-        reporter.finish(JobStatus.DONE)
         return str(repo.pk)
     except IngestionError as exc:
         _fail(repo, reporter, str(exc))
@@ -114,6 +112,27 @@ def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
 def _fail(repo: Repository, reporter: JobReporter, message: str) -> None:
     Repository.objects.filter(pk=repo.pk).update(status=RepoStatus.FAILED, error=message)
     reporter.finish(JobStatus.FAILED, message)
+
+
+def fail_job(job_id: str, message: str) -> None:
+    job = IngestionJob.objects.select_related("repository").get(pk=job_id)
+    _fail(job.repository, JobReporter(job_id), message)
+
+
+def job_is_failed(job_id: str) -> bool:
+    """Later chain stages call this first and do nothing if an earlier stage failed."""
+    return IngestionJob.objects.filter(pk=job_id, status=JobStatus.FAILED).exists()
+
+
+def finalize(job_id: str) -> None:
+    """Last stage: the snapshot is complete and can be served (and cached) from now on."""
+    if job_is_failed(job_id):
+        return
+    job = IngestionJob.objects.select_related("repository").get(pk=job_id)
+    Repository.objects.filter(pk=job.repository_id).update(
+        status=RepoStatus.READY, error="", ingested_at=timezone.now()
+    )
+    JobReporter(job_id).finish(JobStatus.DONE)
 
 
 def _clone(

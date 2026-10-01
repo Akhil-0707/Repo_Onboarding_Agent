@@ -65,6 +65,7 @@ def ensure_indexes() -> list[str]:
                 name="repo_path_line",
             ),
             IndexModel([("repo_id", ASCENDING), ("symbol", ASCENDING)], name="repo_symbol"),
+            IndexModel([("embed_hash", ASCENDING)], name="embed_hash", sparse=True),
         ],
         EDGES: [
             IndexModel([("repo_id", ASCENDING), ("src", ASCENDING)], name="repo_src"),
@@ -123,7 +124,7 @@ def save_edges(repo_id: str | ObjectId, edges: Iterable[dict[str, Any]]) -> int:
 def list_files(repo_id: str | ObjectId) -> list[dict[str, Any]]:
     cursor = collection(FILES).find(
         {"repo_id": _oid(repo_id)},
-        {"_id": 0, "path": 1, "language": 1, "size": 1, "lines": 1},
+        {"_id": 0, "path": 1, "language": 1, "size": 1, "lines": 1, "blob_sha": 1},
     )
     return sorted(cursor, key=lambda f: f["path"])
 

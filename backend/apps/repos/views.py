@@ -91,7 +91,10 @@ class TreeView(APIView):
     @extend_schema(responses=TreeSerializer)
     def get(self, request: Request, repo_id: str) -> Response:
         repository = get_user_repository(request.user, repo_id)
-        files = index_store.list_files(repository.pk)
+        files = [
+            {k: f[k] for k in ("path", "language", "size", "lines")}
+            for f in index_store.list_files(repository.pk)
+        ]
         if not files and repository.status != "ready":
             raise NotIndexedYet()
         return Response({"files": files, "commit_sha": repository.commit_sha})

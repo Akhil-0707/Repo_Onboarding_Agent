@@ -72,14 +72,14 @@ def _link(user: User, repository: Repository) -> None:
 
 
 def _enqueue(repository: Repository, user: User) -> IngestionJob:
-    from apps.ingestion.tasks import ingest_repository
+    from apps.ingestion.tasks import start_pipeline
 
     Repository.objects.filter(pk=repository.pk).update(status=RepoStatus.QUEUED, error="")
     repository.refresh_from_db()
     job = IngestionJob.objects.create(
         repository=repository, user=user, status=JobStatus.QUEUED, steps=initial_steps()
     )
-    result = ingest_repository.delay(str(job.pk))
+    result = start_pipeline(str(job.pk))
     IngestionJob.objects.filter(pk=job.pk).update(celery_task_id=result.id or "")
     return job
 
