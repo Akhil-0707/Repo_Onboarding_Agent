@@ -25,6 +25,7 @@ from apps.agents.tools import Citation, ToolContext, ToolResult, execute_tool, t
 from apps.common.logging import get_logger, scrub
 from apps.common.mongo import get_db
 from apps.llm.client import LLMClient
+from apps.llm.errors import ModelOfflineError
 from apps.llm.toolcall_parse import parse_text_tool_calls, strip_tool_call_markup
 from apps.llm.types import LLMResponse, Message, ToolCall
 
@@ -165,7 +166,7 @@ class AgentLogger:
         )
 
 
-def _summary(name: str, arguments: str, result: ToolResult) -> str:
+def tool_summary(name: str, arguments: str, result: ToolResult) -> str:
     try:
         args = json.loads(arguments) if arguments else {}
     except json.JSONDecodeError:
@@ -185,6 +186,32 @@ def _summary(name: str, arguments: str, result: ToolResult) -> str:
     }.get(name, f"Calling {name}")
     text = f"{verb} '{target}'" if target else verb
     return text if result.ok else f"{text} (failed: {result.error_type})"
+
+
+class TokenGate:
+    """Forwards streamed answer tokens, but holds back text that starts like a tool call
+    written as text (small models do that; it is parsed and executed, never shown)."""
+
+    MARKERS = ("<tool_call", "<function", '{"name"', "```json\n{", "```\n{")
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self.emit = emit
+        self.buffer = ""
+        self.state = "undecided"  # -> "open" (streaming) or "closed" (suppressed)
+
+    def feed(self, text: str) -> None:
+        if self.state == "open":
+            self.emit(text)
+            return
+        if self.state == "closed":
+            return
+        self.buffer += text
+        head = self.buffer.lstrip()
+        if any(head.startswith(marker) for marker in self.MARKERS):
+            self.state = "closed"
+        elif head and not any(marker.startswith(head) for marker in self.MARKERS):
+            self.state = "open"
+            self.emit(self.buffer)
 
 
 def compact_messages(
@@ -232,6 +259,7 @@ class AgentLoop:
         on_step: Callable[[list[Message]], None] | None = None,
         on_tool_start: Callable[[str, str], None] | None = None,
         on_tool_end: Callable[[ToolEvent], None] | None = None,
+        on_token: Callable[[str], None] | None = None,
         purpose: str = "agent",
     ) -> None:
         self.llm = llm
@@ -248,22 +276,34 @@ class AgentLoop:
         self.on_step = on_step
         self.on_tool_start = on_tool_start
         self.on_tool_end = on_tool_end
+        self.on_token = on_token
         self.purpose = purpose
         self.usage = Usage()
 
     def _chat(self, messages: list[Message], iteration: int, *, tools: bool) -> LLMResponse:
         if self.budget.exhausted:
             raise BudgetExceededError("Token budget for this repository is used up.")
-        response = self.llm.chat(
-            compact_messages(messages, self.max_context_chars),
-            tools=self.schemas if tools else None,
-            max_tokens=self.final_max_tokens,
-        )
+        context = compact_messages(messages, self.max_context_chars)
+        schemas = self.schemas if tools else None
+        if self.on_token is None:
+            response = self.llm.chat(context, tools=schemas, max_tokens=self.final_max_tokens)
+        else:
+            response = self._stream(context, schemas)
         self.usage.add(response)
         self.budget.used += response.usage.total_tokens
         if self.agent_logger:
             self.agent_logger.llm(response, iteration, self.purpose)
         return response
+
+    def _stream(self, context: list[Message], schemas: list[dict[str, Any]] | None) -> LLMResponse:
+        assert self.on_token is not None
+        gate = TokenGate(self.on_token)
+        for event in self.llm.stream_chat(context, tools=schemas, max_tokens=self.final_max_tokens):
+            if event.type == "token":
+                gate.feed(event.text)
+            elif event.response is not None:
+                return event.response
+        raise ModelOfflineError("Model stream ended before completion")
 
     def _run_tool(self, call: ToolCall, iteration: int) -> tuple[ToolEvent, ToolResult]:
         if self.on_tool_start:
@@ -282,7 +322,7 @@ class AgentLoop:
             name=call.name,
             arguments=call.arguments,
             ok=result.ok,
-            summary=_summary(call.name, call.arguments, result),
+            summary=tool_summary(call.name, call.arguments, result),
             duration_ms=int((time.perf_counter() - started) * 1000),
             citations=result.citations,
         )

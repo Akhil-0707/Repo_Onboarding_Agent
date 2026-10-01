@@ -15,6 +15,7 @@ from apps.agents.loop import (
     AgentLoop,
     BudgetExceededError,
     TokenBudget,
+    TokenGate,
     compact_messages,
 )
 from apps.agents.schemas import StartHere
@@ -118,6 +119,40 @@ def test_tool_call_then_answer(tool_runs: list) -> None:
     }
     assert steps  # checkpoint hook fired
     assert llm.requests[0]["tools"]  # tools offered
+
+
+def test_streaming_mode_forwards_answer_tokens_only(tool_runs: list) -> None:
+    llm = ScriptedLLM(
+        reply(tool_calls=[call("read_file", {"path": "a.py"})]),
+        reply('<tool_call>{"name": "search_code", "arguments": {"query": "x"}}</tool_call>'),
+        reply("Auth lives in auth.py."),
+    )
+    tokens: list[str] = []
+    result = make_loop(llm, on_token=tokens.append).run([{"role": "user", "content": "go"}])
+    assert [name for name, _ in tool_runs] == ["read_file", "search_code"]
+    assert "".join(tokens).strip() == "Auth lives in auth.py."  # tool-call text never leaks
+    assert result.final_text == "Auth lives in auth.py."
+    assert result.usage.calls == 3
+
+
+@pytest.mark.parametrize(
+    ("chunks", "shown"),
+    [
+        (["Hello", " world"], "Hello world"),
+        (["  <tool", "_call>{}", "</tool_call>"], ""),
+        (['{"na', 'me": "grep"}'], ""),
+        (["```json\n", '{"name": 1}'], ""),
+        (["```py", "thon\nprint(1)\n```"], "```python\nprint(1)\n```"),
+        (["{", "x}"], "{x}"),
+        (["<", "b>bold"], "<b>bold"),
+    ],
+)
+def test_token_gate(chunks: list[str], shown: str) -> None:
+    out: list[str] = []
+    gate = TokenGate(out.append)
+    for chunk in chunks:
+        gate.feed(chunk)
+    assert "".join(out) == shown
 
 
 def test_text_tool_call_fallback(tool_runs: list) -> None:
