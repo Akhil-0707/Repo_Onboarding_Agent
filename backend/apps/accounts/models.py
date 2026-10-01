@@ -12,6 +12,17 @@ class User(AbstractUser):
     # Fernet ciphertext of the GitHub OAuth token. Never serialised, never logged.
     github_token_encrypted = models.TextField(blank=True, default="")
     github_scopes = models.CharField(max_length=255, blank=True, default="")
+    # Bumped on logout: every JWT carries the version it was issued with, so bumping it
+    # revokes all outstanding access and refresh tokens without a blacklist table.
+    token_version = models.PositiveIntegerField(default=0)
+
+    @property
+    def github_connected(self) -> bool:
+        return bool(self.github_token_encrypted)
+
+    @property
+    def has_private_repo_access(self) -> bool:
+        return "repo" in self.github_scopes.split()
 
     class Meta:
         db_table = "users"

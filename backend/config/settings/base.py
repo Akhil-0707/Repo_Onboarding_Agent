@@ -37,7 +37,7 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in env(name, default).split(",") if item.strip()]
 
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-insecure-change-me")
+SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-insecure-secret-key-change-me-0123456789")
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend")
 
@@ -157,7 +157,7 @@ CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 # --- DRF ---------------------------------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.accounts.authentication.VersionedJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -178,6 +178,24 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# --- GitHub OAuth / auth cookies ---------------------------------------------------------
+GITHUB_CLIENT_ID = env("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = env("GITHUB_CLIENT_SECRET", "")
+# Default goes through the frontend origin (Vite proxy / nginx) so cookies stay same-origin.
+GITHUB_OAUTH_REDIRECT_URI = env(
+    "GITHUB_OAUTH_REDIRECT_URI", f"{FRONTEND_URL}/api/auth/github/callback"
+)
+# Comma-separated Fernet keys; first encrypts, all decrypt (rotation). Required unless DEBUG.
+TOKEN_ENCRYPTION_KEYS = env_list("TOKEN_ENCRYPTION_KEYS", "")
+AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
+AUTH_REFRESH_COOKIE = "rg_refresh"
+AUTH_REFRESH_COOKIE_PATH = "/api/auth/"
+AUTH_OAUTH_STATE_COOKIE = "rg_oauth"
+AUTH_EXCHANGE_CODE_TTL = 60
+# Cookie-authenticated endpoints (refresh, logout) require this header: browsers cannot add
+# custom headers to cross-site form posts, so it acts as CSRF protection.
+AUTH_CLIENT_HEADER = "X-RepoGuide-Client"
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "RepoGuide API",
