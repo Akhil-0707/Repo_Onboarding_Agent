@@ -229,3 +229,39 @@ def test_repair_tour(index: FileIndex) -> None:
         ("src/db/models.py", 10, 30),
     ]
     assert report.dropped_paths == ["src/ghost.py"]
+
+
+def test_default_module_kinds_are_inferred_from_names_and_entry_points(index: FileIndex) -> None:
+    data = {
+        "modules": [
+            module("cli", ["main.py"], name="Command line"),
+            module("api", ["src/api/"], name="HTTP API"),
+            module("helpers", ["src/core/"], name="Shared helpers"),
+            module("db", ["src/db/"], kind="other", name="Database models"),
+            module("store", ["src/db/models.py"], kind="service", name="Model store"),
+        ],
+        "edges": [],
+    }
+    repair_architecture(data, index)
+    kinds = {m["id"]: m["kind"] for m in data["modules"]}
+    assert kinds == {
+        "cli": "entry",  # owns the main entry point
+        "api": "core",  # nothing to infer
+        "helpers": "util",
+        "db": "data",
+        "store": "service",  # explicit, non-default kinds are kept
+    }
+
+
+def test_tour_titles_lose_redundant_kind_prefixes(index: FileIndex) -> None:
+    data = tour(
+        {**step("flow_trace"), "title": "Flow Trace: parse() execution"},
+        {**step("core_logic", "src/core/orders.py"), "title": "core logic \u2013 place_order"},
+        {**step("config", "src/db/models.py"), "title": "Configuration"},
+    )
+    repair_tour(data, index)
+    assert [s["title"] for s in data["steps"]] == [
+        "parse() execution",
+        "place_order",
+        "Configuration",
+    ]

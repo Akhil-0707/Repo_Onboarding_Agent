@@ -10,6 +10,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from apps.agents.repo_facts import entry_point_candidates
+
 _LINE_SUFFIX = re.compile(r"[:#]L?(\d+)(?:-L?(\d+))?$")
 
 
@@ -244,6 +246,14 @@ def repair_glossary(data: dict[str, Any], index: FileIndex) -> RefReport:
     return report
 
 
+# "Core Logic: parse()" -> "parse()": the UI already shows the kind as a badge.
+_KIND_PREFIX = re.compile(
+    r"^\s*(intro(duction)?|entry[ _-]?point|flow[ _-]?trace|core[ _-]?logic|data[ _-]?model|"
+    r"config(uration)?|testing|other)\s*[:\u2013\u2014]\s*",  # colon, en dash, em dash
+    re.IGNORECASE,
+)
+
+
 def repair_tour(data: dict[str, Any], index: FileIndex) -> RefReport:
     """Steps pointing at unknown files are dropped; symbols pin down the line range."""
     report = RefReport()
@@ -252,6 +262,7 @@ def repair_tour(data: dict[str, Any], index: FileIndex) -> RefReport:
     for step in data.get("steps", []):
         if not _fix_file_ref(step, index, report):
             continue
+        step["title"] = _KIND_PREFIX.sub("", step["title"]) or step["title"]
         if step.get("symbol"):
             _fix_definition_lines(step, index, report)
         key = (step["path"], step.get("start_line"), step.get("end_line"))
@@ -280,6 +291,32 @@ def module_of(path: str, modules: list[dict[str, Any]]) -> str | None:
             elif owned == path:
                 return module["id"]
     return best
+
+
+# Small models leave most modules at the default kind; obvious names get a better one.
+_KIND_HINTS: list[tuple[str, re.Pattern[str]]] = [
+    ("test", re.compile(r"\b(tests?|specs?|testing|fixtures?)\b")),
+    ("util", re.compile(r"\b(utils?|utilities|helpers?|common|shared)\b")),
+    ("config", re.compile(r"\b(config(uration)?|settings)\b")),
+    ("ui", re.compile(r"\b(ui|views?|components?|pages?|frontend|templates?)\b")),
+    ("data", re.compile(r"\b(db|database|models?|schemas?|storage|persistence|migrations?)\b")),
+    ("other", re.compile(r"\b(docs?|documentation|examples?)\b")),
+]
+_DEFAULT_KINDS = {"core", "other"}
+
+
+def _infer_kinds(modules: list[dict[str, Any]], index: FileIndex) -> None:
+    entries = entry_point_candidates(index.lines)
+    main_module = module_of(entries[0], modules) if entries else None
+    for module in modules:
+        if module.get("kind", "core") not in _DEFAULT_KINDS:
+            continue
+        words = _SLUG.sub(" ", f"{module['id']} {module.get('name', '')}".lower())
+        hint = next((kind for kind, pattern in _KIND_HINTS if pattern.search(words)), None)
+        if hint:
+            module["kind"] = hint
+        elif module["id"] == main_module:
+            module["kind"] = "entry"
 
 
 def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int = 30) -> RefReport:
@@ -313,6 +350,7 @@ def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int =
                 alias.setdefault(key.strip().lower(), new_id)
                 alias.setdefault(_slug(key), new_id)
         modules.append({**module, "id": new_id, "paths": paths})
+    _infer_kinds(modules, index)
     data["modules"] = modules
 
     def resolve(ref: str) -> str | None:
