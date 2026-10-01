@@ -24,7 +24,7 @@ from apps.llm.health import check_llm_health
 from apps.repos.models import IngestionJob, Repository, UserRepository
 from tests.conftest_fixtures import FIXTURES
 from tests.fakes.llm import FakeAnalysisLLM, section_answer
-from tests.fakes.openai_server import FakeOpenAIServer, completion
+from tests.fakes.openai_server import FakeOpenAIServer, StreamReply, completion, stream_chunks
 
 pytestmark = [pytest.mark.mongo, pytest.mark.django_db]
 
@@ -237,7 +237,9 @@ def http_responder(server: FakeOpenAIServer, state: dict[str, Any]):
         section = re.search(r"^Section: (\w+)", prompt, flags=re.MULTILINE)
         if section:
             state["sections"].append(section.group(1))
-            return completion(json.dumps(section_answer(section.group(1), prompt)))
+            answer = json.dumps(section_answer(section.group(1), prompt))
+            assert body.get("stream"), "structured output is streamed"
+            return StreamReply(stream_chunks([answer[:40], answer[40:]]))
         return completion("Notes.")
 
     return respond

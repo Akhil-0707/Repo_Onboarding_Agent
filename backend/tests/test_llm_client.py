@@ -160,6 +160,19 @@ def test_stream_yields_tokens_and_assembles_tool_calls(fake_llm: FakeOpenAIServe
     assert done.response.usage.completion_tokens == 3
 
 
+def test_slow_stream_outlives_the_read_timeout(fake_llm: FakeOpenAIServer) -> None:
+    # 6 chunks x 0.1 s = longer than the 0.3 s read timeout, but each gap is shorter.
+    fake_llm.enqueue(StreamReply(stream_chunks(['{"a"', ": ", "1}"]), delay_between=0.1))
+    client = make_client(read_timeout=0.3, connect_timeout=0.3, max_retries=0)
+    events = list(
+        client.stream_chat(
+            [{"role": "user", "content": "json"}], response_format={"type": "json_object"}
+        )
+    )
+    assert events[-1].response is not None and events[-1].response.content == '{"a": 1}'
+    assert fake_llm.requests[-1]["response_format"] == {"type": "json_object"}
+
+
 def test_stream_interrupted_mid_way_raises_offline(fake_llm: FakeOpenAIServer) -> None:
     fake_llm.enqueue(StreamReply(stream_chunks(["a", "b", "c", "d"]), drop_after=2))
 

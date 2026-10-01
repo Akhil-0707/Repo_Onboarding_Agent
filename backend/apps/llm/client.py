@@ -53,6 +53,7 @@ class LLMClient(ABC):
         messages: list[Message],
         *,
         tools: list[dict[str, Any]] | None = None,
+        response_format: dict[str, Any] | None = None,
         temperature: float = 0.2,
         max_tokens: int | None = None,
     ) -> Iterator[StreamEvent]: ...
@@ -220,11 +221,13 @@ class OpenAICompatibleLLMClient(LLMClient):
         messages: list[Message],
         *,
         tools: list[dict[str, Any]] | None = None,
+        response_format: dict[str, Any] | None = None,
         temperature: float = 0.2,
         max_tokens: int | None = None,
     ) -> Iterator[StreamEvent]:
         """Stream tokens. Retries happen only before the first chunk arrives; a disconnect
-        mid-stream raises ``ModelOfflineError`` because partial output cannot be replayed."""
+        mid-stream raises ``ModelOfflineError`` because partial output cannot be replayed.
+        The read timeout applies between chunks, so long generations never hit it."""
         model = self.model_name
         kwargs: dict[str, Any] = {
             "model": model,
@@ -237,6 +240,8 @@ class OpenAICompatibleLLMClient(LLMClient):
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
+        if response_format:
+            kwargs["response_format"] = response_format
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
 

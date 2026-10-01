@@ -13,8 +13,8 @@ from pydantic import BaseModel, ValidationError
 from apps.agents.loop import AgentLogger, TokenBudget, Usage
 from apps.common.logging import get_logger
 from apps.llm.client import LLMClient
-from apps.llm.errors import LLMRequestError
-from apps.llm.types import Message
+from apps.llm.errors import LLMRequestError, ModelOfflineError
+from apps.llm.types import LLMResponse, Message
 
 logger = get_logger(__name__)
 
@@ -56,6 +56,15 @@ def _describe(exc: ValidationError) -> str:
     return "\n".join(lines)
 
 
+def _complete(llm: LLMClient, messages: list[Message], **kwargs: Any) -> LLMResponse:
+    """Stream the reply: the read timeout then applies between chunks, so a slow model writing
+    a long JSON document is not mistaken for a dead server (a dead one still times out)."""
+    for event in llm.stream_chat(messages, **kwargs):
+        if event.type == "done" and event.response is not None:
+            return event.response
+    raise ModelOfflineError("Model stream ended before completion")
+
+
 def generate_structured[T: BaseModel](
     llm: LLMClient,
     messages: list[Message],
@@ -80,8 +89,12 @@ def generate_structured[T: BaseModel](
             {"type": "json_schema", "json_schema": _schema_for(model)} if guided else None
         )
         try:
-            response = llm.chat(
-                messages, response_format=response_format, max_tokens=max_tokens, temperature=0.1
+            response = _complete(
+                llm,
+                messages,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                temperature=0.1,
             )
         except LLMRequestError as exc:
             if guided and exc.status_code in {400, 422}:
