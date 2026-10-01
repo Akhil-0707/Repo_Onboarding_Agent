@@ -124,15 +124,15 @@ def job_is_failed(job_id: str) -> bool:
     return IngestionJob.objects.filter(pk=job_id, status=JobStatus.FAILED).exists()
 
 
-def finalize(job_id: str) -> None:
-    """Last stage: the snapshot is complete and can be served (and cached) from now on."""
+def mark_indexed(job_id: str) -> None:
+    """Code index + embeddings are done: the snapshot can be browsed, searched and served from
+    cache. The AI analysis continues in the same job (and may wait for the model server)."""
     if job_is_failed(job_id):
         return
     job = IngestionJob.objects.select_related("repository").get(pk=job_id)
     Repository.objects.filter(pk=job.repository_id).update(
         status=RepoStatus.READY, error="", ingested_at=timezone.now()
     )
-    JobReporter(job_id).finish(JobStatus.DONE)
 
 
 def _clone(

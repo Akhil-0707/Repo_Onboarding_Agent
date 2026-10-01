@@ -111,6 +111,7 @@ def test_create_runs_pipeline_and_indexes_repo(_setup: Any) -> None:
         "chunk": "done",
         "store": "done",
         "embed": "done",
+        "analyze": "done",
     }
     filter_logs = next(s for s in job.steps if s["key"] == "filter")["logs"]
     assert any("over 500 KB" in log["message"] for log in filter_logs)
@@ -140,7 +141,7 @@ def test_dashboard_list_detail_and_job(_setup: Any) -> None:
 
     job = client.get(f"/api/repos/{repo_id}/job")
     assert job.json()["status"] == "done"
-    assert len(job.json()["steps"]) == 8
+    assert len(job.json()["steps"]) == 9
 
 
 def test_same_commit_is_served_from_cache(_setup: Any) -> None:

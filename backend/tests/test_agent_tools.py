@@ -70,7 +70,7 @@ def test_pipeline_embeds_every_chunk_and_reuses_vectors() -> None:
     docs = list(chunks.find({"repo_id": first.pk}))
     assert docs and all(len(d["embedding"]) == 384 for d in docs)
     job = IngestionJob.objects.get(repository=first)
-    assert [s["key"] for s in job.steps][-1] == "embed"
+    assert [s["key"] for s in job.steps][-2:] == ["embed", "analyze"]
     assert job.status == "done" and job.progress == 100
 
     second = ingest("py_app", sha="2" * 40)  # same content, new commit

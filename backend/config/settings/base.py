@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.ingestion",
     "apps.search",
     "apps.agents",
+    "apps.analysis",
 ]
 
 MIDDLEWARE = [
@@ -141,6 +142,10 @@ CELERY_BEAT_SCHEDULE = {
     "probe-llm-health": {
         "task": "apps.llm.tasks.probe_llm_health",
         "schedule": env_float("LLM_HEALTH_PROBE_SECONDS", 30.0),
+    },
+    "resume-waiting-analyses": {
+        "task": "apps.analysis.tasks.resume_waiting_analyses",
+        "schedule": env_float("ANALYSIS_RESUME_SECONDS", 60.0),
     },
 }
 
@@ -235,6 +240,13 @@ EMBEDDING_API_KEY = env("EMBEDDING_API_KEY", "")
 SEARCH_VECTOR_INDEX = "chunks_vector"
 SEARCH_TEXT_INDEX = "chunks_text"
 SEARCH_RRF_K = env_int("SEARCH_RRF_K", 60)
+
+# --- Analysis agent ----------------------------------------------------------------------
+ANALYSIS_MAX_ITERATIONS = env_int("ANALYSIS_MAX_ITERATIONS", 6)
+ANALYSIS_TOKEN_BUDGET = env_int("ANALYSIS_TOKEN_BUDGET", 300_000)
+ANALYSIS_MAX_REPAIRS = env_int("ANALYSIS_MAX_REPAIRS", 2)
+ANALYSIS_MAX_CONTEXT_CHARS = env_int("ANALYSIS_MAX_CONTEXT_CHARS", 40_000)
+ANALYSIS_MAX_WAIT_HOURS = env_int("ANALYSIS_MAX_WAIT_HOURS", 48)
 
 # --- LLM (self-hosted, OpenAI-compatible) ------------------------------------------------
 # These are defaults; runtime overrides live in the ``runtime_settings`` collection

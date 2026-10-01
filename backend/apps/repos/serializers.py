@@ -38,6 +38,7 @@ class RepositorySerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     full_name = serializers.CharField(read_only=True)
     latest_job = serializers.SerializerMethodField()
+    analysis_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Repository
@@ -60,8 +61,15 @@ class RepositorySerializer(serializers.ModelSerializer):
             "created_at",
             "ingested_at",
             "latest_job",
+            "analysis_status",
         )
         read_only_fields = fields
+
+    def get_analysis_status(self, repository: Repository) -> str:
+        from apps.analysis.models import Analysis
+
+        analysis = Analysis.objects.filter(repository=repository).only("status").first()
+        return analysis.status if analysis else "pending"
 
     def get_latest_job(self, repository: Repository) -> dict[str, Any] | None:
         job = repository.jobs.order_by("-created_at").first()

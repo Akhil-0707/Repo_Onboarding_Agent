@@ -80,3 +80,17 @@ def _fake_search() -> Iterator[None]:
     yield
     set_embedding_provider(None)
     set_search_backend(None)
+
+
+@pytest.fixture(autouse=True)
+def _fake_llm_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Pipelines that reach the analysis stage use a cooperative fake model by default."""
+    from apps.analysis import runner, tasks
+    from apps.llm.client import set_llm_client
+    from tests.fakes.llm import FakeAnalysisLLM
+
+    set_llm_client(FakeAnalysisLLM())
+    monkeypatch.setattr(runner, "model_available", lambda: True)
+    monkeypatch.setattr(tasks, "model_available", lambda: True)
+    yield
+    set_llm_client(None)

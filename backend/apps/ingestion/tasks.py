@@ -1,4 +1,4 @@
-"""Celery tasks for the ingestion chain: ingest -> embed -> finalize.
+"""Celery tasks for the pipeline chain: ingest -> embed -> mark_indexed -> analyze.
 
 Each stage records its own failure on the job; later stages check the job first and do
 nothing if it already failed, so a chain never needs exceptions to stop.
@@ -11,7 +11,7 @@ from celery.result import AsyncResult
 
 from apps.common.logging import get_logger
 from apps.ingestion.errors import IngestionError
-from apps.ingestion.pipeline import fail_job, finalize, job_is_failed, run_ingestion
+from apps.ingestion.pipeline import fail_job, job_is_failed, mark_indexed, run_ingestion
 from apps.repos.models import IngestionJob
 
 logger = get_logger(__name__)
@@ -42,13 +42,16 @@ def embed_repository(job_id: str) -> None:
 
 
 @shared_task(acks_late=True)
-def finalize_ingestion(job_id: str) -> None:
-    finalize(job_id)
+def mark_repository_indexed(job_id: str) -> None:
+    mark_indexed(job_id)
 
 
 def start_pipeline(job_id: str) -> AsyncResult:
+    from apps.analysis.tasks import analyze_repository
+
     return chain(
         ingest_repository.si(job_id),
         embed_repository.si(job_id),
-        finalize_ingestion.si(job_id),
+        mark_repository_indexed.si(job_id),
+        analyze_repository.si(job_id),
     ).apply_async()

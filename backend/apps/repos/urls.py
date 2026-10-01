@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.analysis import views as analysis_views
 from apps.repos import stream, views
 
 urlpatterns = [
@@ -9,4 +10,10 @@ urlpatterns = [
     path("repos/<str:repo_id>/job/stream", stream.job_stream_view, name="repo-job-stream"),
     path("repos/<str:repo_id>/tree", views.TreeView.as_view(), name="repo-tree"),
     path("repos/<str:repo_id>/files", views.FileContentView.as_view(), name="repo-file"),
+    path("repos/<str:repo_id>/analysis", analysis_views.AnalysisView.as_view(), name="analysis"),
+    path(
+        "repos/<str:repo_id>/analysis/<str:section>",
+        analysis_views.AnalysisSectionView.as_view(),
+        name="analysis-section",
+    ),
 ]

@@ -31,7 +31,8 @@ PIPELINE_STEPS: list[tuple[str, str, int]] = [
     ("parse", "Parse code", 25),
     ("chunk", "Chunk code", 15),
     ("store", "Save code index", 10),
-    ("embed", "Generate embeddings", 25),
+    ("embed", "Generate embeddings", 20),
+    ("analyze", "AI analysis", 30),
 ]
 
 
@@ -145,6 +146,16 @@ class JobReporter:
             raise
         if self._done.get(key) != 1.0:
             self.complete(key)
+
+    def waiting(self, key: str, message: str) -> None:
+        """The model server is offline: the job pauses here and resumes automatically."""
+        self._set_step(key, {"status": "waiting", "message": message})
+        self._jobs().update_one({"_id": self._oid}, {"$set": {"status": "waiting_for_model"}})
+        self._publish({"type": "job", "status": "waiting_for_model"})
+
+    def resumed(self) -> None:
+        self._jobs().update_one({"_id": self._oid}, {"$set": {"status": "running"}})
+        self._publish({"type": "job", "status": "running"})
 
     def finish(self, status: str, error: str = "") -> None:
         self._jobs().update_one(

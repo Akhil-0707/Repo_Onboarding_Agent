@@ -10,6 +10,7 @@ import json
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -142,6 +143,10 @@ class FakeOpenAIServer:
         self.embedding_dimensions = 0
         """When > 0, ``/v1/embeddings`` answers with vectors of this size."""
         self.embedding_failures = 0
+        self.offline = False
+        """Simulate the Kaggle tunnel being down: every request gets a 530."""
+        self.responder: Callable[[dict[str, Any]], JsonReply | ErrorReply] | None = None
+        """Fallback for chat requests when no scripted reply is queued."""
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler_class())
         self._server.daemon_threads = True
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -183,6 +188,9 @@ class FakeOpenAIServer:
                 self.wfile.write(payload)
 
             def do_GET(self) -> None:
+                if fake.offline:
+                    self._send_json(530, {"error": {"message": "origin unreachable"}})
+                    return
                 if not self._authorized():
                     self._send_json(401, {"error": {"message": "unauthorized"}})
                     return
@@ -205,6 +213,9 @@ class FakeOpenAIServer:
                 body = json.loads(self.rfile.read(length) or b"{}")
                 fake.requests.append(body)
                 fake.request_headers.append(dict(self.headers))
+                if fake.offline:
+                    self._send_json(530, {"error": {"message": "origin unreachable"}})
+                    return
                 if not self._authorized():
                     self._send_json(401, {"error": {"message": "unauthorized"}})
                     return
@@ -232,6 +243,8 @@ class FakeOpenAIServer:
                         },
                     )
                     return
+                if not fake.replies and fake.responder is not None:
+                    fake.replies.append(fake.responder(body))
                 if not fake.replies:
                     self._send_json(500, {"error": {"message": "no scripted reply"}})
                     return
