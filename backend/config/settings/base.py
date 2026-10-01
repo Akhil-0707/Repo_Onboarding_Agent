@@ -56,6 +56,8 @@ INSTALLED_APPS = [
     "apps.llm",
     "apps.repos",
     "apps.ingestion",
+    "apps.search",
+    "apps.agents",
 ]
 
 MIDDLEWARE = [
@@ -214,6 +216,25 @@ INGEST_MAX_FILE_KB = env_int("INGEST_MAX_FILE_KB", 500)
 INGEST_CLONE_TIMEOUT = env_int("INGEST_CLONE_TIMEOUT", 300)
 INGEST_WORKDIR = env("INGEST_WORKDIR", "")  # empty: system temp dir
 GITHUB_API_URL = env("GITHUB_API_URL", "https://api.github.com")
+
+# --- Embeddings & search -----------------------------------------------------------------
+# "local": sentence-transformers on CPU in the worker; "openai": any OpenAI-compatible endpoint.
+EMBEDDING_PROVIDER = env("EMBEDDING_PROVIDER", "local")
+EMBEDDING_MODEL = env("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+EMBEDDING_DIMENSIONS = env_int("EMBEDDING_DIMENSIONS", 384)
+EMBEDDING_BATCH_SIZE = env_int("EMBEDDING_BATCH_SIZE", 64)
+EMBEDDING_MAX_RETRIES = env_int("EMBEDDING_MAX_RETRIES", 3)
+EMBEDDING_THREADS = env_int("EMBEDDING_THREADS", 0)  # 0 = torch default
+# bge models expect this instruction on short retrieval queries (not on documents).
+EMBEDDING_QUERY_PREFIX = env(
+    "EMBEDDING_QUERY_PREFIX", "Represent this sentence for searching relevant passages: "
+)
+EMBEDDING_DOCUMENT_PREFIX = env("EMBEDDING_DOCUMENT_PREFIX", "")
+EMBEDDING_BASE_URL = env("EMBEDDING_BASE_URL", "")
+EMBEDDING_API_KEY = env("EMBEDDING_API_KEY", "")
+SEARCH_VECTOR_INDEX = "chunks_vector"
+SEARCH_TEXT_INDEX = "chunks_text"
+SEARCH_RRF_K = env_int("SEARCH_RRF_K", 60)
 
 # --- LLM (self-hosted, OpenAI-compatible) ------------------------------------------------
 # These are defaults; runtime overrides live in the ``runtime_settings`` collection

@@ -139,6 +139,9 @@ class FakeOpenAIServer:
         self.models: list[str] = ["fake-model"]
         self.models_status = 200
         self.required_api_key: str | None = None
+        self.embedding_dimensions = 0
+        """When > 0, ``/v1/embeddings`` answers with vectors of this size."""
+        self.embedding_failures = 0
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler_class())
         self._server.daemon_threads = True
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -204,6 +207,30 @@ class FakeOpenAIServer:
                 fake.request_headers.append(dict(self.headers))
                 if not self._authorized():
                     self._send_json(401, {"error": {"message": "unauthorized"}})
+                    return
+                if self.path.rstrip("/") == "/v1/embeddings" and fake.embedding_dimensions:
+                    if fake.embedding_failures > 0:
+                        fake.embedding_failures -= 1
+                        self._send_json(503, {"error": {"message": "warming up"}})
+                        return
+                    inputs = body.get("input", [])
+                    inputs = [inputs] if isinstance(inputs, str) else inputs
+                    data = [
+                        {
+                            "object": "embedding",
+                            "index": i,
+                            "embedding": [float(len(t) + 1)] * fake.embedding_dimensions,
+                        }
+                        for i, t in enumerate(inputs)
+                    ]
+                    self._send_json(
+                        200,
+                        {
+                            "object": "list",
+                            "data": list(reversed(data)),
+                            "model": body.get("model"),
+                        },
+                    )
                     return
                 if not fake.replies:
                     self._send_json(500, {"error": {"message": "no scripted reply"}})

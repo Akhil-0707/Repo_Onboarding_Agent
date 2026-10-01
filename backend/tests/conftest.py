@@ -66,3 +66,17 @@ def fake_llm(settings: pytest.FixtureRequest) -> Iterator[FakeOpenAIServer]:
     yield server
     server.stop()
     llm_config.invalidate_cache()
+
+
+@pytest.fixture(autouse=True)
+def _fake_search() -> Iterator[None]:
+    """Unit tests never load a real model or need Atlas Search indexes."""
+    from apps.search.backends import InMemorySearchBackend, set_search_backend
+    from apps.search.embeddings import set_embedding_provider
+    from tests.fakes.embeddings import HashingEmbeddingProvider
+
+    set_embedding_provider(HashingEmbeddingProvider())
+    set_search_backend(InMemorySearchBackend())
+    yield
+    set_embedding_provider(None)
+    set_search_backend(None)
