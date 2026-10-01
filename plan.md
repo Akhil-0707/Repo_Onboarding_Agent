@@ -62,12 +62,14 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Real-model smoke test (local Ollama qwen3:4b-instruct): 3/3 sections; reference repair tuned from the real output
 - [x] Push + CI
 
-## Phase 6 — Architecture map, Guided Tour, tour mode
-- [ ] Architecture JSON graph → deterministic Mermaid render
-- [ ] Guided Tour with enforced flow-trace step
-- [ ] Architecture tab (Mermaid, strict security) + Tour tab
-- [ ] Tour mode page (stepper, progress bar, ←/→ keys, code + explanation)
-- [ ] Tests
+## Phase 6 — Architecture map, Guided Tour, tour mode — ✅ Completed (2026-10-01)
+- [x] Architecture JSON graph → deterministic Mermaid render (verified paths, import-seeded edges, sanitised labels)
+- [x] Guided Tour with enforced flow-trace step (schema validator + re-prompt)
+- [x] Architecture tab (Mermaid, strict security) + Tour tab
+- [x] Tour mode page (stepper, progress bar, ←/→ keys, code + explanation)
+- [x] Tests (202 backend, 74 frontend incl. a real-Mermaid parse contract test)
+- [x] Real-model run (Ollama qwen3:4b-instruct): fixed long-JSON read timeouts by streaming structured output
+- [x] Push + CI
 
 ## Phase 7 — Q&A chat
 - [ ] Threads + messages models/APIs

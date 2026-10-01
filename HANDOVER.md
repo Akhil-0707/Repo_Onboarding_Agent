@@ -3,17 +3,18 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 5 complete (real-model smoke test passed); **Phase 6 in progress** (Architecture map + Guided Tour + tour mode).
+- **Phase:** 6 complete (Architecture map + Guided Tour + tour mode, real-model run done). **Next: Phase 7 (Q&A chat).**
 - **Last commit:** see `git log -1`.
-- **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`) for Phase 6 smoke tests. Revert when done (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
+- **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for Phase 7 chat testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
 
 ## ▶ Resume here (fresh session)
-1. Continue Phase 6 per `plan.md` (design notes under "Next steps (Phase 6)" below).
+1. Start Phase 7 per `plan.md` (notes under "Next steps (Phase 7)" below).
 2. To re-run the analysis on the local commander.js snapshot (only missing sections are generated):
    `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the repo with `initial_steps()` (all steps except `analyze` marked done, status running) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`.
 3. Running backend tests locally against the Docker Mongo needs credentials:
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
-4. Backend code edits auto-reload the Celery worker (watchfiles): don't edit backend files while a real analysis is running, or it restarts mid-run.
+4. Backend code edits auto-reload the Celery worker (watchfiles): don't edit backend files while a real analysis is running, or it restarts mid-run. If that happens, restart the worker and re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
+5. Browser checks of authenticated pages need a session for a local test user; the assistant's tooling may refuse to inject tokens into the browser. Log in yourself (GitHub OAuth) or set the `rg_refresh` cookie manually.
 
 ## How to run
 
@@ -90,7 +91,14 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `redis` pinned to 6.4.0 | kombu (Celery 5.6) caps redis-py below 7 |
 | TypeScript **6.0.x** (not 7) | typescript-eslint 8.71 supports TS < 6.1 |
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
-| Architecture map: model outputs JSON graph, server renders Mermaid (Phase 6) | Small models often write invalid Mermaid |
+| Architecture map: model outputs a JSON graph (modules + edges), server verifies paths and renders Mermaid (`apps/agents/mermaid.py`, labels sanitised, node ids prefixed `m_`) | Small models write invalid Mermaid; repo text can't inject Mermaid/HTML |
+| Architecture edges seeded from `dependency_edges` aggregated to modules (dashed "N imports" edges); model edges get an `imports` count as evidence | The map reflects the real code even when the model misses links |
+| Default-kinded modules get an inferred kind (tests/utils/docs/data/config/ui by name; the module owning the main entry point becomes `entry`) | Small models label everything `core` |
+| Tour schema validator requires a `flow_trace` step → `generate_structured` re-prompts with the error | Spec: flow trace enforced server-side |
+| `generate_structured(accept=...)`: reference repair + section checks run inside the retry loop; `SectionCheckError` (an `OutputRejectedError`) is fed back to the model | Unusable output gets fixed instead of failing the section |
+| Structured-output calls **stream** (`stream_chat` with `response_format`) | Read timeout then applies between chunks: a slow model writing 1.6k tokens (128 s locally) is no longer mistaken for an offline server (which looped forever via resume) |
+| Mermaid **11.x** (not 12.0), lazy-loaded chunk, `securityLevel: "strict"`, `htmlLabels: false` | 12.0 pulls a vulnerable lodash-es via chevrotain; Mermaid is big, load it only on the Architecture tab |
+| Tour mode at `/repos/:id/tour?step=N` (1-based, clamped), ←/→ keys ignored while typing | Shareable step links |
 | Shiki (not Monaco) for code viewing | Read-only viewer; much lighter |
 | Hand-written GitHub OAuth (`apps/accounts/github_oauth.py`, `views.py`) | Avoids allauth/social-auth model incompatibilities with Mongo |
 | OAuth callback → SPA gets a **one-time code** (60 s, cache) → `POST /api/auth/exchange` | Tokens never appear in URLs/history |
@@ -103,6 +111,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
 
 ## Completed
+- **Phase 6:** Architecture (JSON graph → verified modules/edges → import-seeded edges → server Mermaid) and Guided Tour (8–12 stops, enforced flow trace, symbol-pinned ranges, kind-prefix cleanup) sections; output re-prompting via `accept`; streamed structured output; frontend Architecture tab (lazy strict Mermaid, clickable nodes highlight module cards, file chips), Tour tab and tour mode page (stepper, progress bar, ←/→, code + explanation); Mermaid contract test runs the real parser on the server's output format. Real run on commander.js with Ollama qwen3:4b-instruct: architecture 6 modules / 9 edges (3 of 6 model edges confirmed by imports, 3 import edges added), tour 9 stops; a 1.6k-token tour JSON took 128 s and only succeeded after switching to streaming; resume from the `structure` checkpoint verified for real. Tests: 202 backend, 74 frontend.
 - **Phase 5:** real-model smoke test with local Ollama `qwen3:4b-instruct` on commander.js: all 3 sections done in 339 s, 9 LLM calls, ~30k tokens, tool calls well-formed (5–6 per research turn), no repairs needed. Output quality findings fixed: the model writes `1-1` line ranges for whole files and invents round line numbers for glossary terms → reference repair now drops `1-1`, prefers the symbol index (exact case first), and drops ranges whose lines don't mention the term.
 - **Phase 5 (code):** text tool-call parser, `AgentLoop` (validation repair, budgets, compaction, checkpoint hook, logging), `generate_structured`, section schemas (Overview incl. 4 starter questions, StartHere, Glossary), citation validator/repair, digest + prompts, `apps/analysis` (model, runner, tasks, API `GET /api/repos/{id}/analysis[/{section}]`), frontend Overview/Start Here/Glossary tabs with citation chips that open the code viewer, waiting-for-model UI. Tests: 185 backend (incl. end-to-end over HTTP with the fake OpenAI server: malformed-call repair, outage mid-run, resume from checkpoint) + 65 frontend, all passing locally.
 - **Phase 4:** embedding providers + batching/retry, embed stage chained after ingestion (vector reuse across snapshots), Atlas vector + text indexes (`ensure_search_indexes`, run at web startup), hybrid search with RRF, 7 agent tools with strict schemas. Verified in Docker on commander.js with the real bge-small model (1,086 chunks; hybrid queries ~50 ms after the first model load; whole pipeline 219 s on CPU). Tests: 143 backend (incl. real Atlas `$vectorSearch`/`$search`), 60 frontend.
@@ -114,13 +123,14 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 6)
-1. Schemas: `Architecture` {summary, modules[id, name, kind, paths, description], edges[source, target, label]} and `Tour` {intro, steps[title, kind, path, start/end, symbol, explanation]}; a Tour validator requires ≥1 `kind="flow_trace"` step so `generate_structured` re-prompts when it's missing.
-2. Post-repair checks re-prompt too (an "output rejected" error fed back like a validation error) instead of failing the section outright.
-3. `apps/agents/mermaid.py`: deterministic, sanitised Mermaid from the repaired graph; edges seeded from `dependency_edges` aggregated to module level (dashed "imports" edges).
-4. Directory-level dependency summary in the architecture prompt.
-5. Frontend: `mermaid` 11.x (12.0 pulls a vulnerable lodash-es), lazy-loaded, `securityLevel: "strict"`; Architecture + Tour tabs; tour mode page `/repos/:id/tour?step=N` (←/→ keys, progress bar, code + explanation).
-6. Tests (schemas, Mermaid sanitising, edge seeding, flow-trace enforcement, runner with 5 sections, UI).
+## Next steps (Phase 7)
+1. `apps/chat`: `Thread` + `Message` models (per user + repo), CRUD APIs under `/api/repos/{id}/threads`.
+2. Streaming chat agent: `POST .../threads/{tid}/messages/stream` (SSE events `token`, `tool_start`, `tool_end`, `citation`, `done`, `error`), same tools + Overview summary in the prompt, "not found in this repository" when evidence is missing. Note: vLLM hermes + streaming tool calls can be flaky; the text tool-call parser is the fallback.
+3. Citations `path:start-end` parsed from the final text, validated with `FileIndex`, invalid ones stripped; stored on the message.
+4. Context for the 16k window: last N turns, older turns summarised, tool output capped (~2k tokens).
+5. Starter questions from `Analysis.sections.overview.data.starter_questions`.
+6. Chat panel UI (collapsible tool steps, citation chips into the code viewer, threads list, disabled with a banner when the model is offline → backend returns 503 `model_offline`).
+7. Tests: fake OpenAI server streams, citation validation, offline 503, UI.
 
 ## Known follow-ups (later phases)
 - **Stale job sweeper (Phase 8):** a worker hard crash (SIGKILL/OOM) can leave a job `running`; add a beat task that fails jobs with no progress for N minutes.
@@ -143,6 +153,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: **Phase 6 complete**: architecture map + guided tour + tour mode; real-model run surfaced the 120 s read-timeout trap for long JSON (fixed by streaming).
 - 2026-10-01: **Phase 5 complete**: real smoke test with Ollama qwen3:4b-instruct passed after restarting the worker (stale task registry); reference repair tightened from what the real output showed.
 - 2026-10-01: Phase 5 code + tests committed locally.
 - 2026-10-01: **Phase 4 complete**: embeddings, Atlas vector/text indexes, hybrid search (RRF), agent tools; real-model verification in Docker.
