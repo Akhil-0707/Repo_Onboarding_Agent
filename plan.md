@@ -71,13 +71,15 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Real-model run (Ollama qwen3:4b-instruct): fixed long-JSON read timeouts by streaming structured output
 - [x] Push + CI
 
-## Phase 7 — Q&A chat
-- [ ] Threads + messages models/APIs
-- [ ] Streaming chat agent (SSE: tokens, tool steps, citations)
-- [ ] Citation parsing/validation; "not found" behaviour
-- [ ] Starter questions
-- [ ] Chat panel UI (collapsible tool steps, citation chips, threads, offline disabled)
-- [ ] Tests
+## Phase 7 — Q&A chat — ✅ Completed (2026-10-02)
+- [x] Threads + messages models/APIs
+- [x] Streaming chat agent (SSE: tokens, tool steps, citations, retract)
+- [x] Citation parsing/validation; "not found" behaviour (look-first nudge)
+- [x] Starter questions (chat panel + Overview)
+- [x] Chat panel UI (collapsible tool steps, citation chips, threads, offline disabled)
+- [x] Tests (227 backend, 82 frontend); real-model + uvicorn checks
+- [x] Embedding warm-up in the API process
+- [x] Push + CI
 
 ## Phase 8 — Cost tracking, rate limits, caching, error polish
 - [ ] Usage/cost per repo and per user; Settings page

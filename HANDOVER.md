@@ -3,12 +3,12 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 6 complete (Architecture map + Guided Tour + tour mode, real-model run done). **Next: Phase 7 (Q&A chat).**
+- **Phase:** 7 complete (Q&A chat, real-model + real-uvicorn checks done). **Next: Phase 8 (usage/cost, rate limits, cache rules, error polish).**
 - **Last commit:** see `git log -1`.
-- **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for Phase 7 chat testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
+- **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for local testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
 
 ## ▶ Resume here (fresh session)
-1. Start Phase 7 per `plan.md` (notes under "Next steps (Phase 7)" below).
+1. Start Phase 8 per `plan.md` (notes under "Next steps (Phase 8)" below). First confirm CI for the last push is green (`gh run list --limit 1`).
 2. To re-run the analysis on the local commander.js snapshot (only missing sections are generated):
    `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the repo with `initial_steps()` (all steps except `analyze` marked done, status running) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`.
 3. Running backend tests locally against the Docker Mongo needs credentials:
@@ -109,8 +109,17 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | OAuth redirect URI defaults to `{FRONTEND_URL}/api/auth/github/callback` | Goes through the Vite proxy/nginx so cookies stay same-origin |
 | SSE via async Django views + fetch-stream on frontend | Needs Authorization header and POST (EventSource can't) |
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
+| Chat agent runs in a thread inside the ASGI process, events handed to the SSE response via an asyncio queue; client disconnect → agent stops at its next step and saves "interrupted" | Simple, no Celery round-trip for interactive latency; long answers hold one thread each (revisit if load grows) |
+| Every chat turn streams; `TokenGate` holds back text that starts like tool-call markup; `retract` event drops drafts that turned out not to be the answer | Live tokens without leaking `<tool_call>` text; `done` carries the authoritative, citation-checked text |
+| `require_tool_use` for chat: an answer given before any tool call is discarded once with a "look first" nudge | Real 4B run answered "not found… I searched for X" without searching |
+| Citations `[path:start-end]`: path-like bracketed refs to missing files are stripped, real ones normalised/clamped, real backticked paths upgraded, fenced code untouched; UI makes chips only from server-validated citations | No hallucinated references survive |
+| History: last `CHAT_HISTORY_TURNS` turns verbatim + deterministic digest of older turns (no extra LLM call); failed answers excluded | Fits the 16k window without summarisation latency |
+| Chat stream view is `csrf_exempt` (Bearer header auth only, never cookies); chat tests use `enforce_csrf_checks=True` | Django's CSRF middleware 403'd real browser POSTs while the test client hid it |
+| Answer rendering: small safe Markdown subset (`AnswerText`), no HTML, no new dependency | Model output is untrusted |
+| Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
 
 ## Completed
+- **Phase 7:** `apps/chat` (Thread/Message models, CRUD + messages API, streaming endpoint `POST /api/repos/{id}/threads/{tid}/messages/stream` with events start/tool_start/tool_end/token/retract/citation/done/error; 503 `model_offline` and 409 `repo_not_ready` before streaming), agent loop streaming mode, citation processing, history digest, embedding warm-up; frontend chat panel (threads select/new/delete, starter questions incl. from Overview, live research steps, streamed draft, cited answers with chips into the code viewer, Stop, offline banner). Real checks with Ollama qwen3:4b-instruct on commander.js: 4-tool answer with 2 validated citations in 53 s; honest "not found" after a real search; through uvicorn first token 7.3 s, disconnect mid-answer recorded as interrupted. Tests: 227 backend, 82 frontend.
 - **Phase 6:** Architecture (JSON graph → verified modules/edges → import-seeded edges → server Mermaid) and Guided Tour (8–12 stops, enforced flow trace, symbol-pinned ranges, kind-prefix cleanup) sections; output re-prompting via `accept`; streamed structured output; frontend Architecture tab (lazy strict Mermaid, clickable nodes highlight module cards, file chips), Tour tab and tour mode page (stepper, progress bar, ←/→, code + explanation); Mermaid contract test runs the real parser on the server's output format. Real run on commander.js with Ollama qwen3:4b-instruct: architecture 6 modules / 9 edges (3 of 6 model edges confirmed by imports, 3 import edges added), tour 9 stops; a 1.6k-token tour JSON took 128 s and only succeeded after switching to streaming; resume from the `structure` checkpoint verified for real. Tests: 202 backend, 74 frontend.
 - **Phase 5:** real-model smoke test with local Ollama `qwen3:4b-instruct` on commander.js: all 3 sections done in 339 s, 9 LLM calls, ~30k tokens, tool calls well-formed (5–6 per research turn), no repairs needed. Output quality findings fixed: the model writes `1-1` line ranges for whole files and invents round line numbers for glossary terms → reference repair now drops `1-1`, prefers the symbol index (exact case first), and drops ranges whose lines don't mention the term.
 - **Phase 5 (code):** text tool-call parser, `AgentLoop` (validation repair, budgets, compaction, checkpoint hook, logging), `generate_structured`, section schemas (Overview incl. 4 starter questions, StartHere, Glossary), citation validator/repair, digest + prompts, `apps/analysis` (model, runner, tasks, API `GET /api/repos/{id}/analysis[/{section}]`), frontend Overview/Start Here/Glossary tabs with citation chips that open the code viewer, waiting-for-model UI. Tests: 185 backend (incl. end-to-end over HTTP with the fake OpenAI server: malformed-call repair, outage mid-run, resume from checkpoint) + 65 frontend, all passing locally.
@@ -123,18 +132,16 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 7)
-1. `apps/chat`: `Thread` + `Message` models (per user + repo), CRUD APIs under `/api/repos/{id}/threads`.
-2. Streaming chat agent: `POST .../threads/{tid}/messages/stream` (SSE events `token`, `tool_start`, `tool_end`, `citation`, `done`, `error`), same tools + Overview summary in the prompt, "not found in this repository" when evidence is missing. Note: vLLM hermes + streaming tool calls can be flaky; the text tool-call parser is the fallback.
-3. Citations `path:start-end` parsed from the final text, validated with `FileIndex`, invalid ones stripped; stored on the message.
-4. Context for the 16k window: last N turns, older turns summarised, tool output capped (~2k tokens).
-5. Starter questions from `Analysis.sections.overview.data.starter_questions`.
-6. Chat panel UI (collapsible tool steps, citation chips into the code viewer, threads list, disabled with a banner when the model is offline → backend returns 503 `model_offline`).
-7. Tests: fake OpenAI server streams, citation validation, offline 503, UI.
+## Next steps (Phase 8)
+1. Usage/cost per repo and per user (aggregate `Analysis.usage` + chat `Message.usage`; `GET /api/repos/{id}/usage`, `GET /api/usage`); Settings page usage view ("≈$0 (self-hosted)").
+2. Per-user rate limit: 5 new analyses/hour (DRF throttle, cache hits exempt); consider a chat questions/minute limit too.
+3. Private-repo cache rule: serve a cached private analysis only after the user's GitHub token confirms access.
+4. `POST /api/repos/{id}/reanalyze`; delete flows; consistent error envelope everywhere (audit plain Django views).
+5. Stale job sweeper (beat task failing jobs with no progress for N minutes).
+6. Tests.
 
 ## Known follow-ups (later phases)
 - **Stale job sweeper (Phase 8):** a worker hard crash (SIGKILL/OOM) can leave a job `running`; add a beat task that fails jobs with no progress for N minutes.
-- **Warm the embedding model in the API process (Phase 7):** the first `search_code` in a process loads bge-small (~10 s).
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
 
 ## Gotchas
@@ -153,6 +160,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-02: **Phase 7 complete**: Q&A chat; real runs found two bugs fixed here (answers without searching; CSRF 403 on the stream POST).
 - 2026-10-01: **Phase 6 complete**: architecture map + guided tour + tour mode; real-model run surfaced the 120 s read-timeout trap for long JSON (fixed by streaming).
 - 2026-10-01: **Phase 5 complete**: real smoke test with Ollama qwen3:4b-instruct passed after restarting the worker (stale task registry); reference repair tightened from what the real output showed.
 - 2026-10-01: Phase 5 code + tests committed locally.
