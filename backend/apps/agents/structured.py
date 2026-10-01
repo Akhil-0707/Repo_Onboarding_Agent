@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 from django.conf import settings
@@ -22,6 +23,11 @@ _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 class StructuredOutputError(Exception):
     """The model could not produce valid output for the schema after all repairs."""
+
+
+class OutputRejectedError(Exception):
+    """Raised by an ``accept`` hook: schema-valid output that is still unusable. The message is
+    sent back to the model like a validation error."""
 
 
 def extract_json(text: str) -> Any:
@@ -61,6 +67,7 @@ def generate_structured[T: BaseModel](
     usage: Usage | None = None,
     agent_logger: AgentLogger | None = None,
     purpose: str = "structured",
+    accept: Callable[[T], None] | None = None,
 ) -> T:
     max_repairs = settings.ANALYSIS_MAX_REPAIRS if max_repairs is None else max_repairs
     guided = bool(settings.LLM_GUIDED_JSON)
@@ -90,9 +97,12 @@ def generate_structured[T: BaseModel](
             agent_logger.llm(response, attempt, f"{purpose}:json")
 
         try:
-            return model.model_validate(extract_json(response.content))
-        except (ValueError, ValidationError) as exc:
-            last_error = _describe(exc) if isinstance(exc, ValidationError) else str(exc)
+            output = model.model_validate(extract_json(response.content))
+            if accept is not None:
+                accept(output)
+            return output
+        except (ValueError, ValidationError, OutputRejectedError) as exc:
+            last_error = _describe(exc) if isinstance(exc, ValidationError) else f"- {exc}"
             logger.info("structured_output_invalid", schema=model.__name__, attempt=attempt + 1)
             messages += [
                 {"role": "assistant", "content": response.content[:4000]},

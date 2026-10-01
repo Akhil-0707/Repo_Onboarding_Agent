@@ -39,6 +39,35 @@ def central_files(repo_id: str, limit: int = 12) -> list[tuple[str, int]]:
     return counts.most_common(limit)
 
 
+def internal_edges(repo_id: str) -> list[tuple[str, str]]:
+    return [
+        (edge["src"], edge["dst"])
+        for edge in collection(EDGES).find(
+            {"repo_id": ObjectId(repo_id), "external": False}, {"dst": 1, "src": 1}
+        )
+        if edge["src"] != edge["dst"]
+    ]
+
+
+def _group(path: str, depth: int = 2) -> str:
+    parts = path.split("/")[:-1][:depth]
+    return "/".join(parts) + "/" if parts else "(root files)"
+
+
+def dependency_summary(edges: list[tuple[str, str]], limit: int = 20) -> str:
+    """Import counts between directories; between files when the code lives in one directory."""
+    groups: Counter[tuple[str, str]] = Counter(
+        (_group(src), _group(dst)) for src, dst in edges if _group(src) != _group(dst)
+    )
+    pairs = groups if len(groups) >= 3 else Counter(edges)
+    if not pairs:
+        return "(no internal imports detected)"
+    return "\n".join(
+        f"  - {src} -> {dst} ({n} import{'s' if n != 1 else ''})"
+        for (src, dst), n in pairs.most_common(limit)
+    )
+
+
 def symbol_rich_files(repo_id: str, limit: int = 10) -> list[tuple[str, int]]:
     pipeline = [
         {"$match": {"repo_id": ObjectId(repo_id)}},

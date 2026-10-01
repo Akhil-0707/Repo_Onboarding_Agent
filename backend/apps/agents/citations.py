@@ -42,6 +42,7 @@ class FileIndex:
         symbols: dict[str, list[dict[str, Any]]] | None = None,
         repo_name: str = "",
         content: Callable[[str], str | None] | None = None,
+        edges: list[tuple[str, str]] | None = None,
     ) -> None:
         self.lines = {f["path"]: max(1, int(f.get("lines") or 1)) for f in files}
         self.lower = {p.lower(): p for p in self.lines}
@@ -57,6 +58,7 @@ class FileIndex:
         self.repo_name = repo_name.lower()
         self._content = content
         self._text: dict[str, list[str] | None] = {}
+        self.edges = edges or []  # internal (importer, imported) file pairs
 
     # --- normalisation -------------------------------------------------------------------
     def _clean(self, raw: str) -> tuple[str, int | None, int | None]:
@@ -239,4 +241,108 @@ def repair_glossary(data: dict[str, Any], index: FileIndex) -> RefReport:
                 report.repaired += 1
         terms.append(term)
     data["terms"] = terms
+    return report
+
+
+def repair_tour(data: dict[str, Any], index: FileIndex) -> RefReport:
+    """Steps pointing at unknown files are dropped; symbols pin down the line range."""
+    report = RefReport()
+    seen: set[tuple[str, int | None, int | None]] = set()
+    kept = []
+    for step in data.get("steps", []):
+        if not _fix_file_ref(step, index, report):
+            continue
+        if step.get("symbol"):
+            _fix_definition_lines(step, index, report)
+        key = (step["path"], step.get("start_line"), step.get("end_line"))
+        if key not in seen:
+            seen.add(key)
+            kept.append(step)
+    data["steps"] = kept
+    return report
+
+
+_SLUG = re.compile(r"[^a-z0-9]+")
+
+
+def _slug(text: str) -> str:
+    return _SLUG.sub("_", text.lower()).strip("_")[:30] or "module"
+
+
+def module_of(path: str, modules: list[dict[str, Any]]) -> str | None:
+    """The module owning ``path``: an exact file match, else the longest directory prefix."""
+    best, best_len = None, -1
+    for module in modules:
+        for owned in module["paths"]:
+            if owned.endswith("/"):
+                if path.startswith(owned) and len(owned) > best_len:
+                    best, best_len = module["id"], len(owned)
+            elif owned == path:
+                return module["id"]
+    return best
+
+
+def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int = 30) -> RefReport:
+    """Verify module paths, normalise ids, resolve edges by id or name, then add the import
+    edges the dependency graph proves (``derived``) so the map reflects the real code."""
+    report = RefReport()
+    modules: list[dict[str, Any]] = []
+    alias: dict[str, str] = {}
+    for module in data.get("modules", []):
+        paths: list[str] = []
+        for raw in module.get("paths", []):
+            report.checked += 1
+            directory = index.resolve_dir(raw)
+            path = f"{directory}/" if directory is not None else index.resolve_file(raw)[0]
+            if path is None:
+                report.dropped += 1
+                report.dropped_paths.append(str(raw))
+                continue
+            if path != raw:
+                report.repaired += 1
+            if path not in paths:
+                paths.append(path)
+        if not paths and module.get("kind") != "external":
+            continue  # nothing real behind it
+        base = _slug(module.get("id") or module["name"])
+        new_id, n = base, 2
+        while any(m["id"] == new_id for m in modules):
+            new_id, n = f"{base}_{n}", n + 1
+        for key in (module.get("id"), module.get("name")):
+            if key:
+                alias.setdefault(key.strip().lower(), new_id)
+                alias.setdefault(_slug(key), new_id)
+        modules.append({**module, "id": new_id, "paths": paths})
+    data["modules"] = modules
+
+    def resolve(ref: str) -> str | None:
+        return alias.get(ref.strip().lower()) or alias.get(_slug(ref))
+
+    imports: dict[tuple[str, str], int] = defaultdict(int)
+    for src, dst in index.edges:
+        a, b = module_of(src, modules), module_of(dst, modules)
+        if a and b and a != b:
+            imports[(a, b)] += 1
+
+    edges: list[dict[str, Any]] = []
+    pairs: set[tuple[str, str]] = set()
+    for edge in data.get("edges", []):
+        source, target = resolve(edge.get("source", "")), resolve(edge.get("target", ""))
+        if not source or not target or source == target or (source, target) in pairs:
+            continue
+        pairs.add((source, target))
+        edges.append(
+            {**edge, "source": source, "target": target, "derived": False,
+             "imports": imports.get((source, target), 0)}
+        )  # fmt: skip
+    for (source, target), count in sorted(imports.items(), key=lambda kv: -kv[1]):
+        if len(edges) >= max_edges:
+            break
+        if (source, target) not in pairs:
+            pairs.add((source, target))
+            edges.append(
+                {"source": source, "target": target, "label": None, "derived": True,
+                 "imports": count}
+            )  # fmt: skip
+    data["edges"] = edges[:max_edges]
     return report
