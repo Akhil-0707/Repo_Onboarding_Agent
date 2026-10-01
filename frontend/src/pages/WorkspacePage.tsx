@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 
+import { useAnalysis } from "../api/analysis";
 import { useRepository, useTree } from "../api/repos";
 import type { Repository } from "../api/types";
 import { CodeViewer } from "../components/CodeViewer";
 import type { LineRange } from "../components/CodeViewer";
 import { FileTree } from "../components/FileTree";
 import { LanguageBar } from "../components/LanguageBar";
+import { GlossarySection } from "../components/sections/GlossarySection";
+import { OverviewSection } from "../components/sections/OverviewSection";
+import { SectionShell } from "../components/sections/SectionShell";
+import { StartHereSection } from "../components/sections/StartHereSection";
+import { StatusBadge } from "../components/StatusBadge";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateViews";
 import { formatRange, parseRange } from "../lib/range";
+import type { CodeRef } from "../lib/refs";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -32,13 +39,10 @@ function Stat({ label, value }: { label: string; value: number | undefined }) {
 function IndexSummary({ repo }: { repo: Repository }) {
   const scripts = Object.entries(repo.detection.scripts ?? {}).slice(0, 8);
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h2 className="text-lg font-semibold">{repo.full_name}</h2>
-        {repo.description && (
-          <p className="mt-1 text-slate-600 dark:text-slate-400">{repo.description}</p>
-        )}
-      </div>
+    <div className="flex flex-col gap-6 border-t border-slate-200 p-6 dark:border-slate-800">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Repository facts
+      </h2>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Files" value={repo.stats.files} />
         <Stat label="Lines" value={repo.stats.lines} />
@@ -77,9 +81,6 @@ function IndexSummary({ repo }: { repo: Repository }) {
           </ul>
         </section>
       )}
-      <p className="text-sm text-slate-500">
-        The AI-written overview appears here once the model has analyzed this repository.
-      </p>
     </div>
   );
 }
@@ -90,6 +91,7 @@ export function WorkspacePage() {
   const repo = useRepository(repoId);
   const ready = repo.data?.status === "ready";
   const tree = useTree(repoId, ready);
+  const analysis = useAnalysis(repoId, ready);
   const [showTree, setShowTree] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
@@ -107,6 +109,13 @@ export function WorkspacePage() {
   };
   const openFile = (path: string, lines: LineRange | null = null) =>
     update({ file: path, lines: formatRange(lines) });
+  const openRef = (ref: CodeRef) => {
+    if (ref.path.endsWith("/")) return;
+    openFile(
+      ref.path,
+      ref.start_line ? { start: ref.start_line, end: ref.end_line ?? ref.start_line } : null,
+    );
+  };
 
   if (repo.isPending) return <LoadingState label="Loading repository" />;
   if (repo.isError) {
@@ -142,6 +151,9 @@ export function WorkspacePage() {
         >
           @{repo.data.commit_sha.slice(0, 7)}
         </a>
+        {analysis.data && analysis.data.status !== "done" && (
+          <StatusBadge status={analysis.data.status} />
+        )}
         <button
           type="button"
           onClick={() => setChatOpen((value) => !value)}
@@ -208,13 +220,41 @@ export function WorkspacePage() {
                 ))}
               </nav>
               <div role="tabpanel" className="min-h-0 flex-1 overflow-auto">
-                {tab === "overview" ? (
-                  <IndexSummary repo={repo.data} />
-                ) : (
+                {tab === "overview" && (
+                  <>
+                    <SectionShell
+                      title="Overview"
+                      section={analysis.data?.sections.overview}
+                      analysisStatus={analysis.data?.status}
+                    >
+                      {(data) => <OverviewSection data={data} onOpen={openRef} />}
+                    </SectionShell>
+                    <IndexSummary repo={repo.data} />
+                  </>
+                )}
+                {tab === "start-here" && (
+                  <SectionShell
+                    title="Start Here"
+                    section={analysis.data?.sections.start_here}
+                    analysisStatus={analysis.data?.status}
+                  >
+                    {(data) => <StartHereSection data={data} onOpen={openRef} />}
+                  </SectionShell>
+                )}
+                {tab === "glossary" && (
+                  <SectionShell
+                    title="Glossary"
+                    section={analysis.data?.sections.glossary}
+                    analysisStatus={analysis.data?.status}
+                  >
+                    {(data) => <GlossarySection data={data} onOpen={openRef} />}
+                  </SectionShell>
+                )}
+                {(tab === "architecture" || tab === "tour") && (
                   <div className="p-6">
                     <EmptyState
                       title="Not generated yet"
-                      description="This section is written by the AI analysis, which runs after ingestion once the model server is online."
+                      description="This section is not part of the analysis yet."
                     />
                   </div>
                 )}

@@ -75,7 +75,15 @@ function RepoCard({ repo }: { repo: Repository }) {
         >
           {repo.full_name}
         </Link>
-        <StatusBadge status={repo.status} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusBadge status={repo.status} />
+          {repo.status === "ready" && repo.analysis_status === "waiting_for_model" && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">AI waiting for model</span>
+          )}
+          {repo.status === "ready" && repo.analysis_status === "running" && (
+            <span className="text-xs text-sky-600 dark:text-sky-400">AI analysis running</span>
+          )}
+        </div>
       </div>
       {repo.description && (
         <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">

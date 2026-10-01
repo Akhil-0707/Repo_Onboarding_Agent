@@ -42,7 +42,7 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
   }, [content, language]);
 
   useEffect(() => {
-    firstHighlighted.current?.scrollIntoView({ block: "center" });
+    firstHighlighted.current?.scrollIntoView?.({ block: "center" });
   }, [highlighted, range?.start]);
 
   const symbols = useMemo(

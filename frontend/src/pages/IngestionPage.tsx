@@ -10,6 +10,7 @@ import { useJobStream } from "../hooks/useJobStream";
 const ICONS: Record<JobStep["status"], string> = {
   pending: "○",
   running: "◐",
+  waiting: "⏸",
   done: "✓",
   failed: "✕",
   skipped: "–",
@@ -18,6 +19,7 @@ const ICONS: Record<JobStep["status"], string> = {
 const ICON_COLORS: Record<JobStep["status"], string> = {
   pending: "text-slate-400",
   running: "text-sky-500 animate-pulse",
+  waiting: "text-amber-500",
   done: "text-emerald-500",
   failed: "text-rose-500",
   skipped: "text-slate-400",
@@ -25,7 +27,8 @@ const ICON_COLORS: Record<JobStep["status"], string> = {
 
 function StepRow({ step }: { step: JobStep }) {
   const [toggled, setToggled] = useState<boolean | null>(null);
-  const open = toggled ?? (step.status === "running" || step.status === "failed");
+  const open =
+    toggled ?? (step.status === "running" || step.status === "failed" || step.status === "waiting");
 
   return (
     <li className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -137,6 +140,15 @@ export function IngestionPage() {
         </div>
       </div>
 
+      {job?.status === "waiting_for_model" && (
+        <p
+          role="status"
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          The AI model is offline. The analysis is paused and resumes automatically when it is back.
+        </p>
+      )}
+
       {error && !ended && (
         <p role="status" className="mt-4 text-sm text-amber-600">
           Connection interrupted ({error}). Reconnecting…
@@ -167,12 +179,12 @@ export function IngestionPage() {
         </ol>
       )}
 
-      {done && (
+      {(done || repo.data?.status === "ready") && (
         <Link
           to={`/repos/${repoId}`}
           className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
         >
-          Open workspace
+          {done ? "Open workspace" : "Browse the code while the AI analysis runs"}
         </Link>
       )}
     </div>

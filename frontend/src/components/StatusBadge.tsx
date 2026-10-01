@@ -1,6 +1,8 @@
-import type { JobStatus, RepoStatus } from "../api/types";
+import type { AnalysisStatus, JobStatus, RepoStatus } from "../api/types";
 
-const STYLES: Record<RepoStatus | JobStatus, { label: string; className: string }> = {
+type Status = RepoStatus | JobStatus | AnalysisStatus;
+
+const STYLES: Record<Status, { label: string; className: string }> = {
   queued: {
     label: "Queued",
     className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
@@ -25,13 +27,21 @@ const STYLES: Record<RepoStatus | JobStatus, { label: string; className: string 
     label: "Done",
     className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   },
+  pending: {
+    label: "Pending",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  },
+  partial: {
+    label: "Partial",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  },
   failed: {
     label: "Failed",
     className: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
   },
 };
 
-export function StatusBadge({ status }: { status: RepoStatus | JobStatus }) {
+export function StatusBadge({ status }: { status: Status }) {
   const style = STYLES[status] ?? STYLES.queued;
   const active = status === "ingesting" || status === "running" || status === "queued";
   return (
