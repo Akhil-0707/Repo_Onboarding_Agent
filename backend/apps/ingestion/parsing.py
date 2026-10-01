@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from functools import cache
 
-from tree_sitter import Node, Parser
+from tree_sitter import Language, Node, Parser
 
 from apps.ingestion.languages import PARSEABLE
 
@@ -58,11 +58,36 @@ class ParsedFile:
     has_errors: bool = False
 
 
+def _load_language(language: str) -> Language:
+    # Official per-language grammar wheels: statically compiled, no runtime downloads.
+    if language == "python":
+        import tree_sitter_python as grammar
+
+        return Language(grammar.language())
+    if language == "javascript":
+        import tree_sitter_javascript as grammar
+
+        return Language(grammar.language())
+    if language in {"typescript", "tsx"}:
+        import tree_sitter_typescript as grammar
+
+        return Language(
+            grammar.language_tsx() if language == "tsx" else grammar.language_typescript()
+        )
+    if language == "java":
+        import tree_sitter_java as grammar
+
+        return Language(grammar.language())
+    if language == "go":
+        import tree_sitter_go as grammar
+
+        return Language(grammar.language())
+    raise ValueError(f"No grammar for {language}")
+
+
 @cache
 def _parser(language: str) -> Parser:
-    from tree_sitter_language_pack import get_parser
-
-    return get_parser(language)  # type: ignore[arg-type]
+    return Parser(_load_language(language))
 
 
 def _text(node: Node | None) -> str:
@@ -327,9 +352,13 @@ def parse_source(language: str, source: str) -> ParsedFile | None:
     """Extract symbols/imports, or ``None`` for languages we do not parse."""
     if language not in PARSEABLE:
         return None
-    tree = _parser(language).parse(source.encode("utf-8"))
+    # Keep the encoded buffer referenced until we are done: ``Node.text`` reads directly from
+    # the buffer handed to ``parse()``, so a temporary here is a use-after-free (segfault).
+    encoded = source.encode("utf-8")
+    tree = _parser(language).parse(encoded)
     result = ParsedFile(language=language, has_errors=tree.root_node.has_error)
     _VISITORS[language](tree.root_node, result)
+    del tree, encoded
     result.symbols = [s for s in result.symbols if s.name]
     result.symbols.sort(key=lambda s: (s.start_line, -s.end_line))
     return result

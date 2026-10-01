@@ -239,3 +239,22 @@ def test_python_relative_imports(
     paths = {"pkg/__init__.py", "pkg/util.py", "pkg/core.py", "pkg/sub/a.py", "pkg/a.py"}
     parsed = {src: ParsedFile("python", imports=[ImportRef(module, 1, level, names)])}
     assert internal(build_edges(parsed, paths)) == {(src, expected)}
+
+
+def test_parsing_survives_garbage_collection_pressure() -> None:
+    """Regression: ``Node.text`` reads the buffer given to ``parse()``; freeing it early
+    segfaulted on Linux once the allocator reused the memory."""
+    import gc
+
+    methods = "".join(
+        f"    @property\n    def p{i}(self):\n        return {i}\n\n    def m{i}(self, x):\n"
+        f"        return x + {i}\n\n"
+        for i in range(60)
+    )
+    source = f"import os\nfrom . import util\n\n\nclass Big(Base):\n{methods}"
+    for _ in range(40):
+        parsed = parse_source("python", source)
+        assert parsed is not None and len(parsed.symbols) == 121
+        _churn = [bytes(4096) for _ in range(200)]
+        del _churn
+        gc.collect()

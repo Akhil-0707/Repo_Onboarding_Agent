@@ -22,8 +22,6 @@ RUN pip install -r requirements.txt \
 COPY --chown=app:app . .
 
 USER app
-# tree-sitter grammars are downloaded on first use; bake them into the image instead.
-RUN python -c "import tree_sitter_language_pack as t; t.download(['python','javascript','typescript','tsx','java','go'])"
 EXPOSE 8000
 ENTRYPOINT ["sh", "docker/entrypoint.sh"]
 CMD ["web"]
