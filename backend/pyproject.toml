@@ -1,0 +1,43 @@
+[project]
+name = "repoguide-backend"
+version = "0.1.0"
+description = "RepoGuide backend: ingestion, analysis agents and API"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+extend-exclude = "(migrations|mongo_migrations|\\.venv)"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations", "mongo_migrations", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "ANN"]
+ignore = [
+    "ANN401", # Any is sometimes the honest type (JSON payloads)
+    "S101",   # assert is fine in tests
+    "RUF012", # Django class attributes (Meta, admin) are mutable by convention
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "S", "B017"]
+"config/settings/*" = ["S105"]
+"manage.py" = ["ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "mongo: needs a running MongoDB (skipped locally when unreachable, required in CI)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:celery.*",
+]
