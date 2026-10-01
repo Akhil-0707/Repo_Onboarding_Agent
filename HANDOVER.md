@@ -3,9 +3,9 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 2 ✅ complete. **Next: Phase 3** (ingestion pipeline with live progress).
-- **Last commit:** see `git log -1` (Phase 2 closed on 2026-10-01).
-- **In progress:** nothing; ready to start Phase 3.
+- **Phase:** 3 ✅ complete. **Next: Phase 4** (embeddings, vector + full-text indexes, hybrid search, agent tools).
+- **Last commit:** see `git log -1` (Phase 3 closed on 2026-10-01).
+- **In progress:** nothing; ready to start Phase 4.
 
 ## How to run
 
@@ -56,6 +56,16 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Runtime model URL in `runtime_settings` (10 s TTL cache) | Kaggle tunnel URL changes per session; no container restarts |
 | `/api/llm/health` is public, never exposes URL/key | Landing page needs the offline banner before login |
 | Log redaction: sensitive keys (non-numeric values) + token-shaped strings | Never leak GitHub/LLM tokens; keep `prompt_tokens` counts readable |
+| **tree-sitter pinned to 0.25.2** + official grammar wheels (`tree-sitter-python/javascript/typescript/java/go`) instead of `tree-sitter-language-pack` | 0.26.0 corrupted heap memory under GC pressure (segfaults in Celery workers, garbage values); the language pack also downloads grammars at runtime. Official wheels are static and deterministic. Regression test: `test_parsing_survives_garbage_collection_pressure` |
+| Keep the bytes passed to `Parser.parse()` alive while walking | `Node.text` reads that buffer directly; a temporary is a use-after-free |
+| Clone = `git init` + `fetch --depth 1 origin <sha>` + checkout | Exact resolved commit; hooks disabled, `core.symlinks=false`, no submodules/LFS/tags, token via `GIT_CONFIG_*` env (never in URL/.git/config) |
+| Files > 500 KB are **skipped and logged**, not fatal; repo size (API pre-check + working tree post-check) and file count (5,000) **fail** the job | Failing a whole repo for one big asset would be hostile; spec limits still enforced |
+| One Celery task runs all clone-dependent steps; Mongo-only stages (embed, analyze) will be chained tasks | The clone lives on one worker's local disk |
+| Job progress written with atomic PyMongo updates (array filters, capped logs) + Redis pub/sub; step timestamps are ISO strings | ORM JSONField re-serialises with `json.dumps` on read (datetimes would break it) |
+| SSE stream: subscribe first, then snapshot, then incremental events; snapshot again on every 15 s keep-alive | No lost events; clients self-heal |
+| `get_db()` uses `connections[...].database` | `get_database()` returns a logging proxy in DEBUG that isn't a real `Database` |
+| Removing a repo only unlinks it from the user's dashboard | Snapshots are a shared cache keyed by commit SHA |
+| Celery worker/beat auto-reload in dev (`watchfiles`, `CELERY_RELOAD=1`) | Workers otherwise keep running stale code |
 | `redis` pinned to 6.4.0 | kombu (Celery 5.6) caps redis-py below 7 |
 | TypeScript **6.0.x** (not 7) | typescript-eslint 8.71 supports TS < 6.1 |
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
@@ -72,6 +82,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
 
 ## Completed
+- **Phase 3:** ingestion pipeline (resolve → cache by url+SHA → sandboxed clone → filter → detect → tree-sitter parse → chunk → store files/blobs/chunks/edges) with live progress (Mongo + Redis → SSE); repo API (create/list/detail/delete, job, tree, file content with line ranges + GitHub links); frontend dashboard, live progress page, workspace (file tree, Shiki code viewer with range highlight + symbol jump, tab/chat placeholders). Fixture repos for py/ts/go/java. Verified for real in Docker on `tj/commander.js` (218 files, 424 symbols, 1,086 chunks, 136 internal edges). Tests: 116 backend, 60 frontend.
 - **Phase 2:** GitHub OAuth (login/callback with signed state cookie, open-redirect-safe `next`), encrypted token storage, one-time exchange code, JWT access + rotating refresh cookie, logout revokes all sessions, `/api/me`; frontend AuthProvider (silent refresh, single-flight, 401 retry), login/callback pages, RequireAuth, user menu, settings GitHub status. Tests: 58 backend, 33 frontend.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
 
@@ -79,14 +90,17 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 3)
-1. `apps/repos`: Repository, UserRepo, IngestionJob models (+ migrations); `POST /api/repos` (URL validation, GitHub resolve of default branch/HEAD SHA/size/private via user token), list/detail.
-2. Cache by (url_normalized, commit_sha): link the user to an existing repo instantly.
-3. `apps/ingestion`: sandboxed shallow clone (limits 200 MB / 5,000 files / 500 KB), filter (+ .gitignore via pathspec), detect languages/frameworks, tree-sitter parse (py/js/ts/tsx/java/go), chunk, depgraph; store files/blobs/chunks/edges via PyMongo.
-4. Progress: steps in Mongo + Redis pub/sub; async SSE view `GET /api/repos/{id}/job/stream`.
-5. Frontend: create flow from landing/dashboard, ingestion progress page, file tree + Shiki CodeViewer.
-6. Fixture repos under `backend/tests/fixtures/repos/` and tests.
-- To test real sign-in locally: create a GitHub OAuth App (callback `http://localhost:5173/api/auth/github/callback`) and set `GITHUB_CLIENT_ID/SECRET` + `TOKEN_ENCRYPTION_KEYS` in `.env`.
+## Next steps (Phase 4)
+1. `apps/search/embeddings/`: `EmbeddingProvider` interface; `SentenceTransformerProvider` (CPU, `BAAI/bge-small-en-v1.5`, 384-d) and `OpenAICompatibleEmbeddingProvider`; batching with retry/backoff. Needs `sentence-transformers` + CPU-only torch in the **worker** image (keep the API image slim via a build arg).
+2. Embed step chained after ingestion (`embed_repository(repo_id)`), with progress reporting (add an `embed` step to `PIPELINE_STEPS`).
+3. `ensure_search_indexes` command: Atlas Vector Search index on `code_chunks.embedding` (filter `repo_id`) + Atlas Search index (content/symbol/path, `repo_id` token); wait until queryable.
+4. `apps/search/store.py` + `hybrid.py`: `$vectorSearch` + `$search`, merged with RRF (k=60); in-memory fake for unit tests.
+5. Agent tools (read-only, scoped to repo): list_directory, read_file, search_code, grep (google-re2), get_symbol, get_dependencies, get_repo_metadata, with JSON schemas.
+6. Tests: RRF, tools on fixture data, provider batching/retry.
+
+## Known follow-ups (later phases)
+- **Stale job sweeper (Phase 8):** a worker hard crash (SIGKILL/OOM) can leave a job `running`; add a beat task that fails jobs with no progress for N minutes.
+- **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
 
 ## Gotchas
 - **Local-only tooling files** are ignored through `.git/info/exclude`, never via the shared `.gitignore`.
@@ -95,11 +109,16 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - Atlas Local search indexes build asynchronously; wait for them before querying.
 - Kaggle sessions time out, so the model can vanish at any time. Everything must tolerate `ModelOfflineError`.
 - `openai` 3.x uses `httpx2` internally (its logger is `httpx2`).
+- After adding npm packages, run `docker compose exec frontend npm install` (node_modules lives in a named volume).
+- Local test session without GitHub OAuth: issue a refresh token for a user via `manage.py shell` (`apps.accounts.services.issue_tokens`) and set it as the `rg_refresh` cookie (path `/api/auth/`) on localhost:5173.
+- Windows Python scripts that edit files must pass `encoding="utf-8"` (default is cp1252).
 
 ## Progress log
 - 2026-10-01: Plan approved; repo initialised with remote `origin` (github.com/Akhil-0707/Repo_Onboarding_Agent).
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: **Phase 3 complete**: ingestion pipeline + live progress + workspace/code viewer; found & fixed a tree-sitter 0.26 memory-corruption bug (pinned 0.25.2); real ingestion verified in Docker.
+- 2026-10-01: History rewritten (force-push, with approval) to remove a tooling mention from an early `.gitignore`.
 - 2026-10-01: **Phase 2 complete**: OAuth/JWT/encryption backend + frontend auth; verified the login redirect round-trip through the Vite proxy in the running stack.
 - 2026-10-01: First local `docker compose up` verified (all services healthy, beat→worker health probe, set_llm_url in container). Backend host port moved to 8010 (8000 used by another local project); all host ports configurable.

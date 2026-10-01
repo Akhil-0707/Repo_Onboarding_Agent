@@ -28,19 +28,19 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Dashboard skeleton (empty/loading/error states)
 - [x] Tests (OAuth flow with mocked GitHub, token encryption, JWT endpoints, auth components)
 
-## Phase 3 — Ingestion pipeline with live progress
-- [ ] Repo create API + URL validation + GitHub resolve (default branch, HEAD SHA, size, visibility)
-- [ ] Cache by `(repo_url, commit_sha)`
-- [ ] Sandboxed shallow clone with limits (200 MB / 5,000 files / 500 KB) and no code execution
-- [ ] File filter (ignored dirs, lockfiles, binaries, minified, vendored, `.gitignore`)
-- [ ] Language + framework detection from extensions and manifests
-- [ ] tree-sitter parsing (Python, JS/TS, Java, Go): symbols + imports; dependency graph
-- [ ] Symbol-aware chunking with size cap + overlap; line-based fallback
-- [ ] Store files, blobs, chunks, dependency edges
-- [ ] Step progress to Mongo + Redis pub/sub; SSE stream endpoint
-- [ ] Frontend: create flow, ingestion progress page (live steps + logs)
-- [ ] File tree + content APIs; FileTree + CodeViewer (Shiki, line highlight, GitHub link)
-- [ ] Fixture repos + tests (filter, chunking, parsing, depgraph, API)
+## Phase 3 — Ingestion pipeline with live progress — ✅ Completed (2026-10-01)
+- [x] Repo create API + URL validation + GitHub resolve (default branch, HEAD SHA, size, visibility)
+- [x] Cache by `(repo_url, commit_sha)`
+- [x] Sandboxed shallow clone with limits (200 MB / 5,000 files / 500 KB) and no code execution
+- [x] File filter (ignored dirs, lockfiles, binaries, minified, vendored, `.gitignore`)
+- [x] Language + framework detection from extensions and manifests
+- [x] tree-sitter parsing (Python, JS/TS, Java, Go): symbols + imports; dependency graph (tree-sitter 0.25.2 + official grammar wheels)
+- [x] Symbol-aware chunking with size cap + overlap; line-based fallback
+- [x] Store files, blobs, chunks, dependency edges
+- [x] Step progress to Mongo + Redis pub/sub; SSE stream endpoint
+- [x] Frontend: create flow, ingestion progress page (live steps + logs)
+- [x] File tree + content APIs; FileTree + CodeViewer (Shiki, line highlight, GitHub link)
+- [x] Fixture repos + tests (filter, chunking, parsing, depgraph, API)
 
 ## Phase 4 — Embeddings, vector + full-text indexes, hybrid search
 - [ ] `EmbeddingProvider` interface; sentence-transformers (CPU) + OpenAI-compatible impls
