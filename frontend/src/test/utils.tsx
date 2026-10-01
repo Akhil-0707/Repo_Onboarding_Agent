@@ -5,11 +5,16 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import type { RouteObject } from "react-router";
 import { vi } from "vitest";
 
+import { AuthProvider } from "../lib/auth";
 import { ThemeProvider } from "../lib/theme";
 
 export function renderWithProviders(
   ui: ReactElement,
-  { path = "/", routes }: { path?: string; routes?: RouteObject[] } = {},
+  {
+    path = "/",
+    routes,
+    auth = false,
+  }: { path?: string; routes?: RouteObject[]; auth?: boolean } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchInterval: false } },
@@ -23,7 +28,13 @@ export function renderWithProviders(
     ...render(
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          {auth ? (
+            <AuthProvider>
+              <RouterProvider router={router} />
+            </AuthProvider>
+          ) : (
+            <RouterProvider router={router} />
+          )}
         </QueryClientProvider>
       </ThemeProvider>,
     ),

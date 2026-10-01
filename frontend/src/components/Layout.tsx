@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router";
 
 import { ModelBanner } from "./ModelBanner";
 import { ThemeToggle } from "./ThemeToggle";
+import { UserMenu } from "./UserMenu";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm font-medium ${
@@ -30,6 +31,7 @@ export function Layout() {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </header>

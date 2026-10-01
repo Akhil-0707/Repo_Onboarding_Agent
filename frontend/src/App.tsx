@@ -4,9 +4,13 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import type { RouteObject } from "react-router";
 
 import { Layout } from "./components/Layout";
+import { RequireAuth } from "./components/RequireAuth";
+import { AuthProvider } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
+import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -16,8 +20,24 @@ export const routes: RouteObject[] = [
     element: <Layout />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: "dashboard", element: <DashboardPage /> },
-      { path: "settings", element: <SettingsPage /> },
+      { path: "login", element: <LoginPage /> },
+      { path: "auth/callback", element: <AuthCallbackPage /> },
+      {
+        path: "dashboard",
+        element: (
+          <RequireAuth>
+            <DashboardPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <RequireAuth>
+            <SettingsPage />
+          </RequireAuth>
+        ),
+      },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -38,7 +58,9 @@ export function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
