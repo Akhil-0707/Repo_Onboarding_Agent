@@ -7,6 +7,7 @@ case "$role" in
   web)
     python manage.py migrate --noinput
     python manage.py ensure_indexes
+    python manage.py ensure_search_indexes || echo "search indexes not ready yet; search degrades until they are"
     exec uvicorn config.asgi:application --host 0.0.0.0 --port 8000 \
       ${UVICORN_RELOAD:+--reload} --proxy-headers
     ;;

@@ -13,6 +13,7 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
   volumes:
     - ./backend:/app
+    - hf_cache:/home/app/.cache/huggingface
   depends_on:
     mongo:
       condition: service_healthy
@@ -96,6 +97,7 @@ services:
       - backend
 
 volumes:
+  hf_cache:
   mongo_data:
   mongo_config:
   mongot_data:
