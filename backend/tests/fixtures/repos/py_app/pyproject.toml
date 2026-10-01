@@ -1,0 +1,7 @@
+[project]
+name = "py-app"
+version = "0.1.0"
+dependencies = ["flask>=3", "click"]
+
+[project.scripts]
+py-app = "app.main:cli"

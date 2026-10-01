@@ -7,12 +7,12 @@ requires-python = ">=3.12"
 [tool.black]
 line-length = 100
 target-version = ["py312"]
-extend-exclude = "(migrations|mongo_migrations|\\.venv)"
+extend-exclude = "(migrations|mongo_migrations|\\.venv|tests/fixtures)"
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["migrations", "mongo_migrations", ".venv"]
+extend-exclude = ["migrations", "mongo_migrations", ".venv", "tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "ANN"]
@@ -34,6 +34,7 @@ known-first-party = ["apps", "config"]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
 testpaths = ["tests"]
+norecursedirs = [".*", "fixtures"]
 addopts = "-ra --strict-markers"
 markers = [
     "mongo: needs a running MongoDB (skipped locally when unreachable, required in CI)",
