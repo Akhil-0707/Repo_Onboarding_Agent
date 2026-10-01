@@ -10,6 +10,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    watch: process.env.VITE_USE_POLLING === "true" ? { usePolling: true } : undefined,
     proxy: {
       "/api": { target: apiTarget, changeOrigin: true },
       "/admin": { target: apiTarget, changeOrigin: true },
