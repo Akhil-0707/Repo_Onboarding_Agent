@@ -15,7 +15,7 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Backend tests (health endpoint, runtime config, LLM client against fake OpenAI-compatible server)
 - [x] Frontend: Vite + React + TS + Tailwind + Router + TanStack Query shell, theme toggle, model-offline banner
 - [x] Frontend lint/format/test tooling (ESLint, Prettier, Vitest + RTL)
-- [x] Docker Compose (mongo atlas-local, redis, backend, worker, beat, frontend), Dockerfiles, `.env.example` _(config validated; first local `docker compose up` still pending — see HANDOVER)_
+- [x] Docker Compose (mongo atlas-local, redis, backend, worker, beat, frontend), Dockerfiles, `.env.example` _(verified locally 2026-10-01)_
 - [x] Kaggle `serve_model.py`, `serve_model.ipynb`, `kaggle/README.md`
 - [x] GitHub Actions CI (ruff, black, pytest, eslint, prettier, tsc, vitest)
 - [x] Lint + tests green, commit, push

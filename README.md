@@ -35,8 +35,8 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:5173
-- API docs: http://localhost:8000/api/docs/
-- Model health: http://localhost:8000/api/llm/health
+- API docs: http://localhost:8010/api/docs/
+- Model health: http://localhost:8010/api/llm/health
 
 Start the model server by following [`kaggle/README.md`](kaggle/README.md), then point the
 running stack at it:

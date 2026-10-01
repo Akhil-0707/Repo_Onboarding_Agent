@@ -15,7 +15,7 @@ cp .env.example .env            # fill DJANGO_SECRET_KEY, MONGO_ROOT_PASSWORD, L
 docker compose up --build       # mongo (atlas-local 8.0), redis, backend, worker, beat, frontend
 ```
 - Frontend http://localhost:5173 (Vite dev; proxies `/api` to the backend)
-- API http://localhost:8000, docs at `/api/docs/`, service health at `/api/health`, model health at `/api/llm/health`
+- API http://localhost:8010 (host port; container port 8000), docs at `/api/docs/`, service health at `/api/health`, model health at `/api/llm/health`
 - Point at a new model URL: `docker compose exec backend python manage.py set_llm_url <url>`
 
 ### Backend locally (Windows)
@@ -69,7 +69,6 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
 
 ## Known issues / TODOs / blockers
-- **`docker compose up` has not been run locally yet:** Docker Desktop wasn't running in the session that built Phase 1. Compose config validates (`docker compose config`), and the CI service container proved atlas-local + migrations work. Run the stack once and fix anything that shows up.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
@@ -93,3 +92,4 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: First local `docker compose up` verified (all services healthy, beat→worker health probe, set_llm_url in container). Backend host port moved to 8010 (8000 used by another local project); all host ports configurable.
