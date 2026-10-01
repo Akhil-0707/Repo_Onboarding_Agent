@@ -1,6 +1,6 @@
 export type RepoStatus = "queued" | "ingesting" | "waiting_for_model" | "ready" | "failed";
 export type JobStatus = "queued" | "running" | "waiting_for_model" | "done" | "failed";
-export type StepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+export type StepStatus = "pending" | "running" | "waiting" | "done" | "failed" | "skipped";
 
 export interface LogEntry {
   ts: string;
@@ -72,6 +72,7 @@ export interface Repository {
   created_at: string;
   ingested_at: string | null;
   latest_job: JobSummary | null;
+  analysis_status: AnalysisStatus;
 }
 
 export interface Paginated<T> {
@@ -109,4 +110,71 @@ export interface FileContent extends FileEntry {
   content: string;
   symbols: SymbolInfo[];
   github_url: string;
+}
+
+// --- AI analysis ---------------------------------------------------------------------------
+
+export type AnalysisStatus =
+  "pending" | "running" | "waiting_for_model" | "done" | "partial" | "failed";
+
+export type SectionStatus = "pending" | "running" | "done" | "failed";
+
+export interface SectionState<T> {
+  status: SectionStatus;
+  error: string;
+  updated_at: string | null;
+  data: T | null;
+}
+
+export interface Overview {
+  summary: string;
+  tech_stack: { name: string; role: string }[];
+  structure: { path: string; description: string }[];
+  prerequisites: string[];
+  how_to_run: { description: string; command: string | null }[];
+  entry_points: {
+    path: string;
+    description: string;
+    start_line: number | null;
+    end_line: number | null;
+  }[];
+  starter_questions: string[];
+}
+
+export interface StartHere {
+  files: { path: string; reason: string; start_line: number | null; end_line: number | null }[];
+}
+
+export interface GlossaryTerm {
+  term: string;
+  kind: "concept" | "class" | "function" | "module" | "config" | "other";
+  definition: string;
+  path: string | null;
+  start_line: number | null;
+  end_line: number | null;
+}
+
+export interface Glossary {
+  terms: GlossaryTerm[];
+}
+
+export interface Analysis {
+  status: AnalysisStatus;
+  model: string;
+  error: string;
+  sections: {
+    overview: SectionState<Overview>;
+    start_here: SectionState<StartHere>;
+    glossary: SectionState<Glossary>;
+  };
+  usage: {
+    calls?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    latency_ms?: number;
+  };
+  est_cost: number;
+  waiting_since: string | null;
+  started_at: string | null;
+  finished_at: string | null;
 }
