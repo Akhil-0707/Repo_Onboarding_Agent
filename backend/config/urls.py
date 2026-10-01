@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/llm/", include("apps.llm.urls")),
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.repos.urls")),
+    path("api/", include("apps.chat.urls")),
 ]

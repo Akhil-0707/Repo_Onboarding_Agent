@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.search",
     "apps.agents",
     "apps.analysis",
+    "apps.chat",
 ]
 
 MIDDLEWARE = [
@@ -247,6 +248,14 @@ ANALYSIS_TOKEN_BUDGET = env_int("ANALYSIS_TOKEN_BUDGET", 300_000)
 ANALYSIS_MAX_REPAIRS = env_int("ANALYSIS_MAX_REPAIRS", 2)
 ANALYSIS_MAX_CONTEXT_CHARS = env_int("ANALYSIS_MAX_CONTEXT_CHARS", 40_000)
 ANALYSIS_MAX_WAIT_HOURS = env_int("ANALYSIS_MAX_WAIT_HOURS", 48)
+
+# Q&A chat agent
+CHAT_MAX_ITERATIONS = env_int("CHAT_MAX_ITERATIONS", 5)
+CHAT_TOKEN_BUDGET = env_int("CHAT_TOKEN_BUDGET", 60_000)  # per answer
+CHAT_MAX_CONTEXT_CHARS = env_int("CHAT_MAX_CONTEXT_CHARS", 36_000)
+CHAT_ANSWER_MAX_TOKENS = env_int("CHAT_ANSWER_MAX_TOKENS", 1500)
+CHAT_HISTORY_TURNS = env_int("CHAT_HISTORY_TURNS", 4)  # older turns are summarised
+CHAT_MAX_QUESTION_CHARS = env_int("CHAT_MAX_QUESTION_CHARS", 4000)
 
 # --- LLM (self-hosted, OpenAI-compatible) ------------------------------------------------
 # These are defaults; runtime overrides live in the ``runtime_settings`` collection

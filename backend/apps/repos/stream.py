@@ -30,7 +30,7 @@ def sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
-def _authenticate(request: HttpRequest) -> Any:
+def authenticate_request(request: HttpRequest) -> Any:
     result = VersionedJWTAuthentication().authenticate(request)  # type: ignore[arg-type]
     if result is None:
         raise AuthenticationFailed("Authentication credentials were not provided.")
@@ -38,7 +38,7 @@ def _authenticate(request: HttpRequest) -> Any:
 
 
 def _resolve_job(request: HttpRequest, repo_id: str) -> IngestionJob:
-    user = _authenticate(request)
+    user = authenticate_request(request)
     job = latest_job(get_user_repository(user, repo_id))
     if job is None:
         raise NotFoundError("No ingestion job for this repository.")
