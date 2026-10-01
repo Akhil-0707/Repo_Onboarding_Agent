@@ -51,14 +51,16 @@ Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Tests (RRF, tools against fixture data, in-memory search backend)
 
 ## Phase 5 — Analysis agent: Overview, Start Here, Glossary
-- [ ] Agent loop: tool schema validation, repair step, plain-text tool-call fallback, iteration + token budgets
-- [ ] Pydantic section schemas + structured-output retry with validation errors
-- [ ] Citation validator (paths/line ranges against the file index)
-- [ ] Deterministic pre-analysis digest
-- [ ] Agent logs (tool calls, tokens, latency) to Mongo
-- [ ] Checkpointing per section; `waiting_for_model` status; beat-driven resume
-- [ ] Overview, Start Here, Glossary sections + UI tabs
-- [ ] Tests: agent loop with mocked LLM, fake OpenAI server (tool calls, malformed repair, timeouts, offline/resume)
+- [x] Agent loop: tool schema validation, repair step, plain-text tool-call fallback, iteration + token budgets
+- [x] Pydantic section schemas + structured-output retry with validation errors
+- [x] Citation validator (paths/line ranges against the file index)
+- [x] Deterministic pre-analysis digest
+- [x] Agent logs (tool calls, tokens, latency) to Mongo
+- [x] Checkpointing per section; `waiting_for_model` status; beat-driven resume
+- [x] Overview, Start Here, Glossary sections + UI tabs
+- [x] Tests: agent loop with mocked LLM, fake OpenAI server (tool calls, malformed repair, timeouts, offline/resume)
+
+- [ ] Real-model smoke test (local Ollama qwen3:4b-instruct or Kaggle), then push + CI
 
 ## Phase 6 — Architecture map, Guided Tour, tour mode
 - [ ] Architecture JSON graph → deterministic Mermaid render

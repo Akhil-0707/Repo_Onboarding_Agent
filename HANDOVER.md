@@ -3,9 +3,17 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 4 ✅ complete. **Next: Phase 5** (analysis agent: loop, structured outputs, Overview / Start Here / Glossary, checkpoint + resume).
+- **Phase:** 5 — code + tests complete and committed (not yet pushed); **real-model smoke test pending** (see Resume here).
 - **Last commit:** see `git log -1` (Phase 4 closed on 2026-10-01).
-- **In progress:** nothing; ready to start Phase 5.
+- **In progress:** real-LLM smoke test of the analysis agent with local Ollama `qwen3:4b-instruct`.
+
+## ▶ Resume here (fresh session)
+1. `docker compose restart worker beat`: the worker logged **"Received unregistered task apps.analysis.tasks.analyze_repository"**. It started before `apps.analysis` existed and the watchfiles reload did not re-register tasks. Then check: `docker compose logs worker | grep analyze`.
+2. The local stack currently points at **Ollama** (ran `set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`; Ollama must be running on the host). Re-run the analysis for commander.js:
+   `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the commander repo with `initial_steps()` (mark all steps except `analyze` as done) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`. A stale job `6abe86482822438d3165028e` exists (status running, never started); delete it or ignore it.
+3. Check `Analysis.sections`, `agent_logs`, and the workspace tabs in the browser. Tune prompts/limits if the 4B model struggles (notes in this file).
+4. Revert the model URL when done: delete the `llm.base_url`/`llm.model` rows in `runtime_settings` (admin) or run `set_llm_url` with the Kaggle tunnel.
+5. Push `main`, wait for CI, then tick Phase 5 in `plan.md` and move to Phase 6.
 
 ## How to run
 
@@ -74,6 +82,11 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `ensure_search_indexes` compares definitions as a *subset* of what Atlas stores | Atlas adds defaults (`indexOptions`, `norms`); equality would rebuild on every start |
 | Hybrid search = `$vectorSearch` + `$search` merged with RRF (k=60); each side may fail and search degrades to the other | Robust while indexes build or the embedder is unavailable |
 | Agent tools (`apps/agents/tools.py`): Pydantic arg models (extra=forbid) → JSON schemas; `execute_tool` never raises and returns repair-friendly errors (incl. the expected schema); outputs capped at 8k chars and wrapped in `<repo_content>` with breakout escaping; `grep` uses RE2 (no ReDoS) | Small-model safeguards + prompt-injection defence |
+| Analysis = per-section *research loop* (tools, ≤6 iterations) → *structured JSON* (Pydantic schema, guided `response_format` with fallback, ≤2 repair retries) → *reference repair* (`apps/agents/citations.py`) | Short focused prompts per section suit an 8B model; nothing hallucinated survives |
+| Deterministic digest (`apps/agents/digest.py`): README excerpt, scripts, layout, entry points, most-imported files | Fewer tool calls, better small-model output |
+| Pipeline chain is now `ingest → embed → mark_indexed → analyze`; repo becomes `ready` (browsable) after embeddings; the job stays open until the analysis ends | Users can read code while the AI works or waits |
+| `ModelOfflineError` → checkpoint (`Analysis.checkpoint`: section, phase research/structure, messages, iteration) → job `waiting_for_model`; beat `resume_waiting_analyses` (60 s) atomically claims and re-enqueues; gives up after `ANALYSIS_MAX_WAIT_HOURS` (48) | Kaggle sessions disappear; finished sections are never redone |
+| Every LLM/tool call logged to `agent_logs` (tokens, latency, tool, args); usage + `est_cost` on `Analysis` | Spec: track tokens/latency instead of $ |
 | `redis` pinned to 6.4.0 | kombu (Celery 5.6) caps redis-py below 7 |
 | TypeScript **6.0.x** (not 7) | typescript-eslint 8.71 supports TS < 6.1 |
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
@@ -90,6 +103,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `est_cost` from configurable per-1k prices, default 0 | Self-hosted model; tokens + latency are the primary metrics |
 
 ## Completed
+- **Phase 5 (code done):** text tool-call parser, `AgentLoop` (validation repair, budgets, compaction, checkpoint hook, logging), `generate_structured`, section schemas (Overview incl. 4 starter questions, StartHere, Glossary), citation validator/repair, digest + prompts, `apps/analysis` (model, runner, tasks, API `GET /api/repos/{id}/analysis[/{section}]`), frontend Overview/Start Here/Glossary tabs with citation chips that open the code viewer, waiting-for-model UI. Tests: 185 backend (incl. end-to-end over HTTP with the fake OpenAI server: malformed-call repair, outage mid-run, resume from checkpoint) + 65 frontend, all passing locally.
 - **Phase 4:** embedding providers + batching/retry, embed stage chained after ingestion (vector reuse across snapshots), Atlas vector + text indexes (`ensure_search_indexes`, run at web startup), hybrid search with RRF, 7 agent tools with strict schemas. Verified in Docker on commander.js with the real bge-small model (1,086 chunks; hybrid queries ~50 ms after the first model load; whole pipeline 219 s on CPU). Tests: 143 backend (incl. real Atlas `$vectorSearch`/`$search`), 60 frontend.
 - **Phase 3:** ingestion pipeline (resolve → cache by url+SHA → sandboxed clone → filter → detect → tree-sitter parse → chunk → store files/blobs/chunks/edges) with live progress (Mongo + Redis → SSE); repo API (create/list/detail/delete, job, tree, file content with line ranges + GitHub links); frontend dashboard, live progress page, workspace (file tree, Shiki code viewer with range highlight + symbol jump, tab/chat placeholders). Fixture repos for py/ts/go/java. Verified for real in Docker on `tj/commander.js` (218 files, 424 symbols, 1,086 chunks, 136 internal edges). Tests: 116 backend, 60 frontend.
 - **Phase 2:** GitHub OAuth (login/callback with signed state cookie, open-redirect-safe `next`), encrypted token storage, one-time exchange code, JWT access + rotating refresh cookie, logout revokes all sessions, `/api/me`; frontend AuthProvider (silent refresh, single-flight, 401 retry), login/callback pages, RequireAuth, user menu, settings GitHub status. Tests: 58 backend, 33 frontend.
@@ -130,6 +144,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-01: Phase 5 code + tests committed locally (not pushed). Real smoke test with Ollama qwen3:4b-instruct blocked by a worker that had not registered the new task; restart the worker and re-run (see Resume here).
 - 2026-10-01: **Phase 4 complete**: embeddings, Atlas vector/text indexes, hybrid search (RRF), agent tools; real-model verification in Docker.
 - 2026-10-01: **Phase 3 complete**: ingestion pipeline + live progress + workspace/code viewer; found & fixed a tree-sitter 0.26 memory-corruption bug (pinned 0.25.2); real ingestion verified in Docker.
 - 2026-10-01: History rewritten (force-push, with approval) to remove a tooling mention from an early `.gitignore`.
