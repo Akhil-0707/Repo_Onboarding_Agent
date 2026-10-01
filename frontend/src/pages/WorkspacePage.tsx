@@ -4,6 +4,7 @@ import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { useAnalysis } from "../api/analysis";
 import { useRepository, useTree } from "../api/repos";
 import type { Repository } from "../api/types";
+import { ChatPanel } from "../components/chat/ChatPanel";
 import { CodeViewer } from "../components/CodeViewer";
 import type { LineRange } from "../components/CodeViewer";
 import { FileTree } from "../components/FileTree";
@@ -15,7 +16,7 @@ import { SectionShell } from "../components/sections/SectionShell";
 import { StartHereSection } from "../components/sections/StartHereSection";
 import { TourSection } from "../components/sections/TourSection";
 import { StatusBadge } from "../components/StatusBadge";
-import { EmptyState, ErrorState, LoadingState } from "../components/StateViews";
+import { ErrorState, LoadingState } from "../components/StateViews";
 import { formatRange, parseRange } from "../lib/range";
 import type { CodeRef } from "../lib/refs";
 
@@ -96,6 +97,12 @@ export function WorkspacePage() {
   const analysis = useAnalysis(repoId, ready);
   const [showTree, setShowTree] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  // A starter question clicked outside the chat: (re)mount the panel and ask it.
+  const [chatRequest, setChatRequest] = useState<{ text: string; nonce: number } | null>(null);
+  const askInChat = (text: string) => {
+    setChatRequest({ text, nonce: Date.now() });
+    setChatOpen(true);
+  };
 
   const tab = (params.get("tab") as TabKey | null) ?? "overview";
   const filePath = params.get("file");
@@ -229,7 +236,7 @@ export function WorkspacePage() {
                       section={analysis.data?.sections.overview}
                       analysisStatus={analysis.data?.status}
                     >
-                      {(data) => <OverviewSection data={data} onOpen={openRef} />}
+                      {(data) => <OverviewSection data={data} onOpen={openRef} onAsk={askInChat} />}
                     </SectionShell>
                     <IndexSummary repo={repo.data} />
                   </>
@@ -283,10 +290,13 @@ export function WorkspacePage() {
             <div className="border-b border-slate-200 px-4 py-2 font-semibold dark:border-slate-800">
               Ask about this codebase
             </div>
-            <div className="flex-1 p-4">
-              <EmptyState
-                title="Chat is not available yet"
-                description="Questions are answered by the AI model once this repository has been analyzed."
+            <div className="min-h-0 flex-1">
+              <ChatPanel
+                key={chatRequest?.nonce ?? "chat"}
+                repoId={repoId}
+                starterQuestions={analysis.data?.sections.overview.data?.starter_questions ?? []}
+                onOpen={openRef}
+                autoAsk={chatRequest?.text}
               />
             </div>
           </aside>

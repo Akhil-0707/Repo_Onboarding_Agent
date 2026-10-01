@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SectionShell } from "../components/sections/SectionShell";
 import { makeAnalysis, makeRepo } from "../test/fixtures";
-import { jsonResponse, mockFetch, renderWithProviders } from "../test/utils";
+import { jsonResponse, mockFetch, renderWithProviders, sseResponse } from "../test/utils";
 import { WorkspacePage } from "./WorkspacePage";
 
 const mermaid = vi.hoisted(() => ({
@@ -31,10 +31,44 @@ const user = {
   date_joined: "2026-10-01T00:00:00Z",
 };
 
+const chatAnswer = {
+  id: "a1",
+  role: "assistant",
+  content: "They live in UserService.",
+  status: "complete",
+  error: "",
+  citations: [],
+  tool_steps: [],
+  created_at: "",
+};
+
 function mockBackend(analysis = makeAnalysis()) {
+  const chatMessages: (typeof chatAnswer)[] = [];
   return mockFetch((url) => {
     if (url.endsWith("/api/auth/refresh")) return jsonResponse({ access: "a", user });
     if (url.endsWith("/analysis")) return jsonResponse(analysis);
+    if (url.endsWith("/api/llm/health")) {
+      return jsonResponse({ online: true, model: "m", latency_ms: 1, checked_at: "", error: null });
+    }
+    if (url.includes("/threads?")) {
+      return jsonResponse({ count: 0, next: null, previous: null, results: [] });
+    }
+    if (url.endsWith("/threads")) {
+      return jsonResponse({ id: "t1", title: "", created_at: "", updated_at: "" }, 201);
+    }
+    if (url.endsWith("/threads/t1")) {
+      return jsonResponse({
+        id: "t1",
+        title: "",
+        created_at: "",
+        updated_at: "",
+        messages: chatMessages,
+      });
+    }
+    if (url.endsWith("/messages/stream")) {
+      chatMessages.push(chatAnswer);
+      return sseResponse([`event: done\ndata: ${JSON.stringify({ message: chatAnswer })}\n\n`]);
+    }
     if (url.endsWith("/tree")) {
       return jsonResponse({
         commit_sha: "abc",
@@ -127,6 +161,17 @@ describe("WorkspacePage", () => {
     expect(within(core as HTMLElement).getByRole("button", { name: /app\// })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: /app\/main\.py/ }));
     expect(await screen.findByText("app/main.py line 30")).toBeInTheDocument();
+  });
+
+  it("asks an overview starter question in the chat panel", async () => {
+    const fetchSpy = mockBackend();
+    renderWorkspace();
+    await userEvent.click(await screen.findByRole("button", { name: "Where are users stored?" }));
+
+    const chat = await screen.findByRole("complementary", { name: "Chat" });
+    expect(await within(chat).findByText("They live in UserService.")).toBeInTheDocument();
+    const stream = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/messages/stream"));
+    expect(JSON.parse(String(stream?.[1]?.body))).toEqual({ content: "Where are users stored?" });
   });
 
   it("lists tour stops and links into tour mode", async () => {
