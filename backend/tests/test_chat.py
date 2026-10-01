@@ -186,14 +186,19 @@ def test_history_keeps_recent_turns_and_summarises_older_ones(
     repo: Repository, settings: Any
 ) -> None:
     settings.CHAT_HISTORY_TURNS = 1
-    llm = ScriptedLLM(reply("First answer."), reply("Second answer."), reply("Third answer."))
+    # Each first reply answers without looking at the code: it is discarded and the model is
+    # asked to check the repository first (it then answers directly the second time).
+    llm = ScriptedLLM(
+        *[r for text in ("First", "Second", "Third")
+          for r in (reply("From memory."), reply(f"{text} answer."))]
+    )  # fmt: skip
     set_llm_client(llm)
     client = owner_client(repo)
     thread_id = new_thread(client, repo)
     for question in ("Question one?", "Question two?", "Question three?"):
         assert events_of(ask(client, repo, thread_id, question))[-1][0] == "done"
 
-    messages = llm.requests[2]["messages"]
+    messages = llm.requests[4]["messages"]
     assert "Earlier in this conversation (summary):\n- Q: Question one?\n- A: First answer." in (
         messages[0]["content"]
     )
@@ -217,11 +222,12 @@ def test_model_dying_mid_answer_sends_an_error_event(repo: Repository) -> None:
     assert failed.status == "error" and failed.role == "assistant"
 
     # Failed answers are not replayed to the model as history.
-    llm = ScriptedLLM(reply("Now it works."))
+    llm = ScriptedLLM(reply("From memory."), reply("Now it works."))
     set_llm_client(llm)
     assert events_of(ask(client, repo, thread_id, "Again?"))[-1][0] == "done"
     roles = [m["role"] for m in llm.requests[0]["messages"]]
     assert roles == ["system", "user", "user"]
+    assert llm.requests[1]["messages"][-1]["content"].startswith("Before answering, use the tools")
 
 
 def test_offline_model_and_bad_requests_fail_before_streaming(

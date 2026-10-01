@@ -11,6 +11,7 @@ from apps.agents import loop as loop_module
 from apps.agents.citations import FileIndex, repair_glossary, repair_overview, repair_start_here
 from apps.agents.loop import (
     FINAL_ANSWER_NUDGE,
+    LOOK_FIRST_NUDGE,
     REPAIR_EXHAUSTED_NUDGE,
     AgentLoop,
     BudgetExceededError,
@@ -133,6 +134,35 @@ def test_streaming_mode_forwards_answer_tokens_only(tool_runs: list) -> None:
     assert "".join(tokens).strip() == "Auth lives in auth.py."  # tool-call text never leaks
     assert result.final_text == "Auth lives in auth.py."
     assert result.usage.calls == 3
+
+
+def test_answers_without_looking_are_sent_back_once(tool_runs: list) -> None:
+    llm = ScriptedLLM(
+        reply("From memory: it is in auth.py."),
+        reply("Let me check.", tool_calls=[call("read_file", {"path": "auth.py"})]),
+        reply("Auth lives in auth.py."),
+    )
+    tokens: list[str] = []
+    retracts: list[int] = []
+    loop = make_loop(
+        llm,
+        on_token=tokens.append,
+        on_retract=lambda: retracts.append(len(tokens)),
+        require_tool_use=True,
+    )
+    result = loop.run([{"role": "user", "content": "Where is auth?"}])
+    assert result.final_text == "Auth lives in auth.py."
+    assert llm.requests[1]["messages"][-1]["content"] == LOOK_FIRST_NUDGE
+    assert all("From memory" not in str(m["content"]) for m in llm.requests[1]["messages"])
+    # The discarded answer and the tool-call preamble were both retracted.
+    assert len(retracts) == 2
+    assert "".join(tokens[retracts[1] :]).strip() == "Auth lives in auth.py."
+
+    stubborn = ScriptedLLM(reply("No tools needed."), reply("Still no tools."))
+    result = make_loop(stubborn, on_token=tokens.append, require_tool_use=True).run(
+        [{"role": "user", "content": "Thanks!"}]
+    )
+    assert result.final_text == "Still no tools."  # nudged once, then accepted
 
 
 @pytest.mark.parametrize(

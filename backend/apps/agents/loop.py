@@ -40,6 +40,10 @@ REPAIR_EXHAUSTED_NUDGE = (
     "answer with what you have."
 )
 EMPTY_ANSWER_NUDGE = "Your reply was empty. Either call a tool or write your answer."
+LOOK_FIRST_NUDGE = (
+    "Before answering, use the tools to look for evidence in the repository (for example "
+    "search_code or grep). Do not answer from memory."
+)
 REPAIRABLE = {"invalid_json", "invalid_arguments", "unknown_tool"}
 
 
@@ -260,6 +264,8 @@ class AgentLoop:
         on_tool_start: Callable[[str, str], None] | None = None,
         on_tool_end: Callable[[ToolEvent], None] | None = None,
         on_token: Callable[[str], None] | None = None,
+        on_retract: Callable[[], None] | None = None,
+        require_tool_use: bool = False,
         purpose: str = "agent",
     ) -> None:
         self.llm = llm
@@ -277,6 +283,9 @@ class AgentLoop:
         self.on_tool_start = on_tool_start
         self.on_tool_end = on_tool_end
         self.on_token = on_token
+        self.on_retract = on_retract
+        self.require_tool_use = require_tool_use
+        self._streamed = False  # did the last streamed reply show text to the user?
         self.purpose = purpose
         self.usage = Usage()
 
@@ -302,8 +311,15 @@ class AgentLoop:
             if event.type == "token":
                 gate.feed(event.text)
             elif event.response is not None:
+                self._streamed = gate.state == "open"
                 return event.response
         raise ModelOfflineError("Model stream ended before completion")
+
+    def _retract(self) -> None:
+        """Streamed text that turned out not to be the answer: tell the listener to drop it."""
+        if self._streamed and self.on_retract:
+            self.on_retract()
+        self._streamed = False
 
     def _run_tool(self, call: ToolCall, iteration: int) -> tuple[ToolEvent, ToolResult]:
         if self.on_tool_start:
@@ -338,6 +354,7 @@ class AgentLoop:
         citations: list[Citation] = []
         consecutive_invalid = 0
         nudged_empty = False
+        nudged_look = False
         iteration = start_iteration
         stopped = "answered"
 
@@ -354,6 +371,12 @@ class AgentLoop:
 
             if not calls:
                 text = strip_tool_call_markup(response.content)
+                if text and self.require_tool_use and not events and not nudged_look:
+                    # Answered without looking at the code: discard it and ask to look first.
+                    nudged_look = True
+                    self._retract()
+                    messages.append({"role": "user", "content": LOOK_FIRST_NUDGE})
+                    continue
                 if text:
                     messages.append({"role": "assistant", "content": text})
                     if self.on_step:
@@ -368,6 +391,7 @@ class AgentLoop:
                 messages.append({"role": "user", "content": EMPTY_ANSWER_NUDGE})
                 continue
 
+            self._retract()  # any text streamed with these calls was a preamble
             # Record the call in OpenAI format so tool results attach to it.
             messages.append(
                 {

@@ -1,7 +1,8 @@
 """The Q&A agent: answers one question in a thread, emitting events while it works.
 
 Events (sent to the browser as SSE): ``tool_start``/``tool_end`` for every tool call,
-``token`` for streamed answer text (a preview: tool-call markup is held back), ``citation``
+``token`` for streamed answer text (a preview: tool-call markup is held back; ``retract``
+means the text streamed so far was not the answer and should be dropped), ``citation``
 for each validated reference, then ``done`` with the saved message, or ``error``.
 """
 
@@ -168,6 +169,8 @@ def answer_question(
         on_tool_start=on_tool_start,
         on_tool_end=on_tool_end,
         on_token=on_token,
+        on_retract=lambda: emit("retract", {}),
+        require_tool_use=True,
         purpose="chat",
     )
 
