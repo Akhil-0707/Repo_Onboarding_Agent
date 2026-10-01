@@ -1,24 +1,24 @@
 # RepoGuide — Phase Plan
 
-Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Completed (date, commit)` when every task under it is done.
+Status legend: `- [x]` pending, `- [x]` done. A phase heading gets `✅ Completed (date, commit)` when every task under it is done.
 
 ---
 
-## Phase 1 — Scaffolding, infrastructure, LLM health, Kaggle server
-- [ ] Git repo, `.gitignore`, `.gitattributes`, `plan.md`, `HANDOVER.md`
-- [ ] Backend project: Django 5.2 + django-mongodb-backend, settings split (base/dev/test), custom `User` with Mongo app configs, migrations
-- [ ] Common layer: PyMongo handle, structured logging with secret redaction, error envelope, pagination
-- [ ] Celery app + Redis broker + beat schedule skeleton
-- [ ] `LLMClient` interface + OpenAI-compatible implementation (timeouts, retries, backoff, `ModelOfflineError`)
-- [ ] Runtime LLM settings (Mongo-backed, TTL cache) + `manage.py set_llm_url` + admin
-- [ ] `/api/llm/health` endpoint (Redis-cached) + OpenAPI docs (drf-spectacular)
-- [ ] Backend tests (health endpoint, runtime config, LLM client against fake OpenAI-compatible server)
-- [ ] Frontend: Vite + React + TS + Tailwind + Router + TanStack Query shell, theme toggle, model-offline banner
-- [ ] Frontend lint/format/test tooling (ESLint, Prettier, Vitest + RTL)
-- [ ] Docker Compose (mongo atlas-local, redis, backend, worker, beat, frontend), Dockerfiles, `.env.example`
-- [ ] Kaggle `serve_model.py`, `serve_model.ipynb`, `kaggle/README.md`
-- [ ] GitHub Actions CI (ruff, black, pytest, eslint, prettier, tsc, vitest)
-- [ ] Lint + tests green, commit, push
+## Phase 1 — Scaffolding, infrastructure, LLM health, Kaggle server — ✅ Completed (2026-10-01)
+- [x] Git repo, `.gitignore`, `.gitattributes`, `plan.md`, `HANDOVER.md`
+- [x] Backend project: Django 5.2 + django-mongodb-backend, settings split (base/dev/test), custom `User` with Mongo app configs, migrations
+- [x] Common layer: PyMongo handle, structured logging with secret redaction, error envelope, pagination
+- [x] Celery app + Redis broker + beat schedule skeleton
+- [x] `LLMClient` interface + OpenAI-compatible implementation (timeouts, retries, backoff, `ModelOfflineError`)
+- [x] Runtime LLM settings (Mongo-backed, TTL cache) + `manage.py set_llm_url` + admin
+- [x] `/api/llm/health` endpoint (Redis-cached) + OpenAPI docs (drf-spectacular)
+- [x] Backend tests (health endpoint, runtime config, LLM client against fake OpenAI-compatible server)
+- [x] Frontend: Vite + React + TS + Tailwind + Router + TanStack Query shell, theme toggle, model-offline banner
+- [x] Frontend lint/format/test tooling (ESLint, Prettier, Vitest + RTL)
+- [x] Docker Compose (mongo atlas-local, redis, backend, worker, beat, frontend), Dockerfiles, `.env.example` _(config validated; first local `docker compose up` still pending — see HANDOVER)_
+- [x] Kaggle `serve_model.py`, `serve_model.ipynb`, `kaggle/README.md`
+- [x] GitHub Actions CI (ruff, black, pytest, eslint, prettier, tsc, vitest)
+- [x] Lint + tests green, commit, push
 
 ## Phase 2 — GitHub OAuth, JWT, users, dashboard skeleton
 - [ ] GitHub OAuth login/callback, one-time exchange code, user upsert
