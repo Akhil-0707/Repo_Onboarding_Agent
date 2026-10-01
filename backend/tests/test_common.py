@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from rest_framework import exceptions
 
 from apps.common.errors import ModelOfflineApiError, api_exception_handler
@@ -63,3 +64,16 @@ def test_unhandled_exception_becomes_500_envelope() -> None:
 def test_numeric_token_counts_are_not_redacted() -> None:
     event = redact_secrets(None, "info", {"event": "llm_call", "prompt_tokens": 120})
     assert event["prompt_tokens"] == 120
+
+
+@pytest.mark.mongo
+@pytest.mark.django_db
+def test_get_db_returns_real_database_even_in_debug(settings: object) -> None:
+    from pymongo.database import Database
+
+    from apps.common.mongo import get_db
+
+    settings.DEBUG = True  # type: ignore[attr-defined]
+    db = get_db()
+    assert isinstance(db, Database)
+    assert db["files"].name == "files"

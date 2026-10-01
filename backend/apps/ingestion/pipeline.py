@@ -66,12 +66,12 @@ def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
     job = IngestionJob.objects.select_related("repository", "user").get(pk=job_id)
     repo = job.repository
     reporter = JobReporter(job_id)
-    reporter.job_started()
-    Repository.objects.filter(pk=repo.pk).update(status=RepoStatus.INGESTING, error="")
-    reporter.complete("resolve", f"{repo.full_name} @ {repo.commit_sha[:7]}")
-
-    sandbox = _workdir()
+    sandbox: Path | None = None
     try:
+        reporter.job_started()
+        Repository.objects.filter(pk=repo.pk).update(status=RepoStatus.INGESTING, error="")
+        reporter.complete("resolve", f"{repo.full_name} @ {repo.commit_sha[:7]}")
+        sandbox = _workdir()
         work = _Work(root=sandbox / "repo")
         _clone(work, job, repo, reporter, cloner or clone_repository)
         _filter(work, reporter)
@@ -101,10 +101,14 @@ def run_ingestion(job_id: str, *, cloner: Cloner | None = None) -> str:
         raise
     except Exception as exc:
         logger.exception("ingestion_crashed", job_id=job_id)
-        _fail(repo, reporter, "Unexpected error while processing the repository.")
+        try:
+            _fail(repo, reporter, "Unexpected error while processing the repository.")
+        except Exception:  # the failure itself may be what broke (e.g. DB down)
+            logger.exception("ingestion_fail_record_failed", job_id=job_id)
         raise IngestionError("Unexpected error while processing the repository.") from exc
     finally:
-        shutil.rmtree(sandbox, ignore_errors=True)
+        if sandbox is not None:
+            shutil.rmtree(sandbox, ignore_errors=True)
 
 
 def _fail(repo: Repository, reporter: JobReporter, message: str) -> None:

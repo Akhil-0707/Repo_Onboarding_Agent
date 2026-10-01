@@ -49,11 +49,20 @@ class RedisEventBus(EventBus):
         await pubsub.subscribe(channel)
         try:
             yield None
+            loop = asyncio.get_running_loop()
+            last = loop.time()
             while True:
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=tick)
+                remaining = max(0.0, tick - (loop.time() - last))
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=remaining
+                )
                 if message is None:
-                    yield None
+                    # Also returned for ignored subscribe confirmations: only tick on time.
+                    if loop.time() - last >= tick:
+                        last = loop.time()
+                        yield None
                     continue
+                last = loop.time()
                 try:
                     yield json.loads(message["data"])
                 except (TypeError, ValueError):

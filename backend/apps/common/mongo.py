@@ -11,4 +11,6 @@ from pymongo.database import Database
 
 
 def get_db(alias: str = "default") -> Database:
-    return connections[alias].get_database()
+    # ``get_database()`` returns a query-logging proxy when DEBUG is on, which is not a real
+    # ``Database`` (no ``db[name]``); the raw handle is the cached ``database`` attribute.
+    return connections[alias].database
