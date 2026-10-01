@@ -17,6 +17,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.db import connections
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import AuthenticationFailed
 
 from apps.chat.agent import answer_question
@@ -91,6 +92,8 @@ async def answer_events(
         cancelled.set()  # client gone (or finished): the agent stops at its next step
 
 
+# Authenticated by the Authorization header only (never cookies), so CSRF does not apply.
+@csrf_exempt
 async def message_stream_view(request: HttpRequest, repo_id: str, thread_id: str) -> HttpResponse:
     if request.method != "POST":
         return error_response("method_not_allowed", "Use POST.", 405)

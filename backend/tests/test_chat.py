@@ -65,7 +65,7 @@ def repo() -> Repository:
 
 
 def client_for(user: User) -> APIClient:
-    client = APIClient()
+    client = APIClient(enforce_csrf_checks=True)  # like a real browser request
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {issue_tokens(user).access}")
     return client
 
