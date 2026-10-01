@@ -34,6 +34,10 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
+export function getUnauthorizedHandler(): UnauthorizedHandler | null {
+  return unauthorizedHandler;
+}
+
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /** Sent on every request; cookie-authenticated endpoints require it (CSRF defence). */
