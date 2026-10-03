@@ -5,17 +5,17 @@ Living document. Update after every meaningful step. A fresh session should be a
 ## Current status
 - **Phase:** 9 complete. **All planned phases (1–9) are done.** Since then: real README screenshots, dev tooling, and the **Kaggle model server is verified working** (2026-10-03).
 - **Last commit:** see `git log -1`.
-- **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://healing-cookie-mart-skip.trycloudflare.com/v1` and dies when the notebook stops.
+- **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://trial-reports-org-yourself.trycloudflare.com/v1` and dies when the notebook stops.
 - **`.env`** (gitignored) now exists and holds only `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`), created by the developer. Never print or commit it. All other settings use defaults.
 - **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
 - **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
-- **Kaggle session ended** at ~08:08 UTC on 2026-10-03 (`/api/llm/health` → unreachable). Start a new one before any model work.
-- **One open check:** the Glossary prompt now excludes package-script names (`test`, `check:lint`, …). Not yet verified on the real model: needs one Glossary re-run (see Resume here, step 3).
+- **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names. No open tasks.
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
 2. **Model server:** on Kaggle, open the RepoGuide notebook (GPU T4 x2, Internet on, secret `VLLM_API_KEY` attached) → Run All → copy the `Public URL: …trycloudflare.com/v1` line → `docker compose exec backend python manage.py set_llm_url <url>`. It should print `Model 'Qwen/Qwen3-8B' is online`. A fresh tunnel can refuse connections for ~1 minute; just re-run `set_llm_url`. Without Kaggle, use local Ollama instead: start the Ollama app, then `set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`.
-3. **Next task (needs the model):** re-run only the Glossary of commander.js on Qwen3-8B to verify the new prompt drops package-script names. In `docker compose exec backend python manage.py shell`: load `Analysis` for repo `6abe76b0edff12d59ede7efc`, set `sections["glossary"]["status"] = "pending"`, save, then `apps.repos.services._enqueue_analysis_only(repo, User.objects.get(username="e2e-check"))` (it only re-runs sections that are not done). Check the terms; if good, re-export the snapshot and `npm run screenshots` (no screenshot shows the glossary today, so this is optional).
+3. **Next task:** none planned; see "Later candidates" under Next steps. Useful recipes:
+   - Re-running one section: set `sections[key]["status"] = "pending"` on the repo's `Analysis`, then `apps.repos.services._enqueue_analysis_only(repo, user)` (it only re-runs sections that are not done).
    - Re-running a whole analysis: delete the repo's `Analysis`, then `_enqueue_analysis_only(repo, user)`; watch `docker compose logs -f worker`.
    - Repair changes can be re-applied to stored output without the model: `get_section(key).repair(data, load_file_index(ToolContext(repo)))`, then save `sections` (repairs are idempotent).
 4. To look at the app signed in: `docker compose exec backend python manage.py login_link e2e-check` → open the printed link within 60 s (user `e2e-check` has commander.js and itsdangerous on its dashboard).
@@ -153,7 +153,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
   | Architecture | 6 modules / 9 edges | one module per lib file: 9 modules / 18 edges after repair, almost all import-backed (busier map) |
   | Tour | 9 stops, 3 without a range | 10 stops, all with ranges, flow trace on `parse()` |
   | Start Here | 15 files | 15 files (adds `eslint.config.js`, `CHANGELOG.md`) |
-  | Glossary | 17 terms | 14 terms: 9 real API terms with exact locations + 5 npm script names (prompt fixed, re-run pending) |
+  | Glossary | 17 terms | first run 14 terms incl. 5 npm script names; after the prompt fix 8 real API terms, all with exact locations |
   - 8B makes one tool call per turn (4B batched 5–6), hence more calls and ~2× prompt tokens for similar model time.
   - Fixes from this run: tour range focusing, glossary location check, architecture umbrella/unlinked-external pruning, glossary prompt, ordered-list numbering in chat answers, screenshot spec picks a cited conversation. README screenshots now show the 8B output.
 - **Kaggle / Qwen3-8B (2026-10-03):** vLLM 0.30.0 serving Qwen3-8B on 2× T4 via cloudflared; `set_llm_url` switched the stack from Ollama (model override cleared, ~600 ms health round trip). Real chat on commander.js:
@@ -201,6 +201,7 @@ Later candidates: chat answers in dedicated workers if load grows; a chat rate l
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: Glossary re-run on Qwen3-8B confirms the prompt fix (8 API terms, no script names); chat screenshot re-shot without the test label.
 - 2026-10-03: **Qwen3-8B analysis re-run** on commander.js (5/5 sections); fixed tour ranges, glossary locations, architecture umbrellas, chat list numbering; README screenshots regenerated from 8B. Glossary prompt re-run pending (Kaggle session ended).
 - 2026-10-01: Plan approved; repo initialised with remote `origin` (github.com/Akhil-0707/Repo_Onboarding_Agent).
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
