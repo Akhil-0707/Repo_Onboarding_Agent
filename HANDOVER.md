@@ -95,7 +95,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Architecture map: model outputs a JSON graph (modules + edges), server verifies paths and renders Mermaid (`apps/agents/mermaid.py`, labels sanitised, node ids prefixed `m_`) | Small models write invalid Mermaid; repo text can't inject Mermaid/HTML |
 | Architecture edges seeded from `dependency_edges` aggregated to modules (dashed "N imports" edges); model edges get an `imports` count as evidence | The map reflects the real code even when the model misses links |
 | Default-kinded modules get an inferred kind (tests/utils/docs/data/config/ui by name; the module owning the main entry point becomes `entry`) | Small models label everything `core` |
-| Tour schema validator requires a `flow_trace` step → `generate_structured` re-prompts with the error | Spec: flow trace enforced server-side |
+| Flow trace enforced after repair by `ensure_flow_trace`: if no stop is labelled, the model picks which of its own stops form the trace (tiny JSON), else the tour is re-prompted | Real run: the 4B model rewrote a whole tour 3x (~100 s each) and never added the label; the pick takes ~2 s |
 | `generate_structured(accept=...)`: reference repair + section checks run inside the retry loop; `SectionCheckError` (an `OutputRejectedError`) is fed back to the model | Unusable output gets fixed instead of failing the section |
 | Structured-output calls **stream** (`stream_chat` with `response_format`) | Read timeout then applies between chunks: a slow model writing 1.6k tokens (128 s locally) is no longer mistaken for an offline server (which looped forever via resume) |
 | Mermaid **11.x** (not 12.0), lazy-loaded chunk, `securityLevel: "strict"`, `htmlLabels: false` | 12.0 pulls a vulnerable lodash-es via chevrotain; Mermaid is big, load it only on the Architecture tab |
@@ -126,6 +126,10 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Playwright E2E runs the production build (`vite preview`) with every `/api` call mocked in the browser (`e2e/fakeApi.ts`, stateful) | Real Chromium exercises Mermaid, SSE, keyboard tour mode and chat without any backend services |
 | Coverage floors in CI: backend `--cov-fail-under=90` (at 93%), frontend Vitest thresholds just below current numbers | Regressions in coverage fail the build |
 | `seed_demo` stores an optional `GITHUB_API_TOKEN` on the demo user only (never a global fallback) | A global server token could resolve private repos for users without access |
+| `login_link` (DEBUG only) prints a one-time sign-in link using the OAuth exchange code | Explore a local stack without registering a GitHub OAuth app; the developer runs it, tokens never pass through tooling |
+| README screenshots = real API responses (`export_snapshot`, recorded in-process by the real views) replayed in the real UI by Playwright (`npm run screenshots`) | Real output, reproducible, no signed-in browser needed |
+| `set_llm_url` without `--model` clears the model override; adopts the server's only model if the configured one is not served; explains 401/403 (API key) | Switching Ollama → vLLM used to keep `qwen3:4b-instruct` and fail |
+| Architecture repair ignores previously derived edges and re-derives them | Idempotent: re-applying repair to stored output used to turn dashed import edges into plain ones |
 | Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
 
 ## Completed
@@ -145,12 +149,11 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
 ## Next steps (after Phase 9)
-All planned phases are done. Candidates, roughly by value:
-1. Real screenshots for the README (`docs/screenshots/*.png`; the table lists the expected files).
-2. A real Kaggle run of vLLM 0.30.0 on 2x T4 (still unverified; fallback 0.18.1 documented).
-3. Move chat answers from API threads to dedicated workers if load grows.
-4. Optional chat rate limit (questions/minute) next to the analysis limit.
-5. Production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
+Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, smarter `set_llm_url`, flow-trace pick, idempotent architecture repair; `pallets/itsdangerous` analysed for real (5/5 sections).
+Waiting on the developer:
+1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
+2. **Kaggle run**: follow `kaggle/README.md`; put `LLM_API_KEY` in `.env` (create it; one line is enough), `docker compose up -d`, then `set_llm_url <tunnel URL>`. That also switches the stack away from Ollama. Then re-run the smoke tests (re-analyse a repo, ask a chat question) on Qwen3-8B.
+Later candidates: chat answers in dedicated workers if load grows; a chat rate limit; production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
@@ -165,12 +168,17 @@ All planned phases are done. Candidates, roughly by value:
 - After adding npm packages, run `docker compose exec frontend npm install` (node_modules lives in a named volume).
 - Local test session without GitHub OAuth: issue a refresh token for a user via `manage.py shell` (`apps.accounts.services.issue_tokens`) and set it as the `rg_refresh` cookie (path `/api/auth/`) on localhost:5173.
 - Windows Python scripts that edit files must pass `encoding="utf-8"` (default is cp1252).
+- Git Bash rewrites `/tmp/...` arguments passed to `docker compose exec` into Windows paths: prefix those commands with `MSYS_NO_PATHCONV=1` (but not `docker compose cp`, whose host-side path needs the conversion).
+- The Celery worker's auto-reload can lag behind edits; after changing agent/analysis code, `docker compose restart worker` before a real run (a stale worker produced an old error message once).
+- GitHub's anonymous API limit (60 requests/hour per IP) is shared by every local tool; `seed_demo` accepts `GITHUB_API_TOKEN`, signed-in users use their own token.
+- Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
 - 2026-10-01: Plan approved; repo initialised with remote `origin` (github.com/Akhil-0707/Repo_Onboarding_Agent).
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-03: Post-Phase 9: real screenshots, login_link, export_snapshot, set_llm_url model switching, flow-trace pick (real 4B: 1.6 s vs three failed ~100 s rewrites), idempotent architecture repair; itsdangerous analysed 5/5.
 - 2026-10-03: **Phase 9 complete**: coverage (93% backend in CI), Playwright E2E in CI, seed_demo, README. All phases done.
 - 2026-10-03: **Phase 8 complete**: limits, re-analysis, usage, private access re-checks, sweeper, JSON 404s.
 - 2026-10-02: **Phase 7 complete**: Q&A chat; real runs found two bugs fixed here (answers without searching; CSRF 403 on the stream POST).
