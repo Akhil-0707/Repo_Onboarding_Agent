@@ -3,12 +3,12 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 8 complete (rate limits, re-analysis, usage, private access re-checks, stale-job sweeper, error envelope). **Next: Phase 9 (coverage, Playwright E2E, seed_demo, README).**
+- **Phase:** 9 complete. **All planned phases (1–9) are done.** Possible next work is listed under "Next steps (after Phase 9)".
 - **Last commit:** see `git log -1`.
 - **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for local testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
 
 ## ▶ Resume here (fresh session)
-1. Start Phase 9 per `plan.md` (notes under "Next steps (Phase 9)" below). First confirm CI for the last push is green (`gh run list --limit 1`).
+1. All phases are complete. Confirm CI for the last push is green (`gh run list --limit 1`), then pick from "Next steps (after Phase 9)" below.
 2. To re-run the analysis on the local commander.js snapshot (only missing sections are generated):
    `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the repo with `initial_steps()` (all steps except `analyze` marked done, status running) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`.
 3. Running backend tests locally against the Docker Mongo needs credentials:
@@ -123,9 +123,13 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Usage: analysis usage attributed to users who *started work* on a snapshot; chat usage is personal; cost via `apps/llm/cost.py` (prices default 0 → "≈$0 (self-hosted)") | Cache hits are free, so they cost the opener nothing |
 | Stale-job sweeper (beat, 5 min): running jobs silent for 30 min (`heartbeat_at`, written on every progress update) or queued for 6 h are stopped; if the repo is already browsable only the unfinished AI sections fail (checkpoint kept for Re-analyze) | Worker SIGKILL/OOM no longer leaves jobs spinning forever |
 | Unknown `/api/` URLs → JSON envelope via a catch-all route (works with DEBUG on) plus `handler404/500` | Consistent errors everywhere |
+| Playwright E2E runs the production build (`vite preview`) with every `/api` call mocked in the browser (`e2e/fakeApi.ts`, stateful) | Real Chromium exercises Mermaid, SSE, keyboard tour mode and chat without any backend services |
+| Coverage floors in CI: backend `--cov-fail-under=90` (at 93%), frontend Vitest thresholds just below current numbers | Regressions in coverage fail the build |
+| `seed_demo` stores an optional `GITHUB_API_TOKEN` on the demo user only (never a global fallback) | A global server token could resolve private repos for users without access |
 | Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
 
 ## Completed
+- **Phase 9:** tests for the GitHub REST/OAuth clients (error translation, token fallback), encryption configuration, the real Redis event bus, health endpoint and management commands; real Shiki highlighting and ingestion page states; CI coverage floors and a Redis service; Playwright E2E (main flow: landing → dashboard → live progress → workspace tabs incl. real Mermaid → tour mode by keyboard → streamed cited chat → dashboard; plus offline chat) in a new CI job; `seed_demo` command; full README (architecture diagram, setup, model server, config, API, development, trade-offs, security, limitations, screenshot placeholders). Tests: 263 backend (93% coverage in CI), 94 frontend, 2 E2E.
 - **Phase 8:** per-user new-analysis rate limit (cache hits free; 429 `rate_limited` with `retry_after_seconds`), `POST /api/repos/{id}/reanalyze`, usage endpoints (`GET /api/usage` incl. rate-limit status and pricing, `GET /api/repos/{id}/usage`), private-repo access re-checks, stale-job sweeper with job heartbeats, JSON 404 catch-all; frontend Settings usage section (tokens, model time, cost, quota, per-repo table) and workspace Re-analyze action with outcome notices. Live checks: real usage on commander.js (58,729 analysis tokens / 17 calls), Re-analyze surfaced GitHub's unauthenticated rate limit as a clean 502, JSON 404 in dev. Tests: 238 backend, 88 frontend.
 - **Phase 7:** `apps/chat` (Thread/Message models, CRUD + messages API, streaming endpoint `POST /api/repos/{id}/threads/{tid}/messages/stream` with events start/tool_start/tool_end/token/retract/citation/done/error; 503 `model_offline` and 409 `repo_not_ready` before streaming), agent loop streaming mode, citation processing, history digest, embedding warm-up; frontend chat panel (threads select/new/delete, starter questions incl. from Overview, live research steps, streamed draft, cited answers with chips into the code viewer, Stop, offline banner). Real checks with Ollama qwen3:4b-instruct on commander.js: 4-tool answer with 2 validated citations in 53 s; honest "not found" after a real search; through uvicorn first token 7.3 s, disconnect mid-answer recorded as interrupted. Tests: 227 backend, 82 frontend.
 - **Phase 6:** Architecture (JSON graph → verified modules/edges → import-seeded edges → server Mermaid) and Guided Tour (8–12 stops, enforced flow trace, symbol-pinned ranges, kind-prefix cleanup) sections; output re-prompting via `accept`; streamed structured output; frontend Architecture tab (lazy strict Mermaid, clickable nodes highlight module cards, file chips), Tour tab and tour mode page (stepper, progress bar, ←/→, code + explanation); Mermaid contract test runs the real parser on the server's output format. Real run on commander.js with Ollama qwen3:4b-instruct: architecture 6 modules / 9 edges (3 of 6 model edges confirmed by imports, 3 import edges added), tour 9 stops; a 1.6k-token tour JSON took 128 s and only succeeded after switching to streaming; resume from the `structure` checkpoint verified for real. Tests: 202 backend, 74 frontend.
@@ -140,12 +144,13 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 9)
-1. Fill coverage gaps (run `pytest --cov` and `vitest --coverage`; target the services/views with the least coverage).
-2. Playwright E2E main flow with a mocked backend (`npm run e2e` exists in package.json; add config, a route-mocked happy path: landing → dashboard → progress → workspace tabs → tour mode → chat).
-3. `manage.py seed_demo`: create a demo user + ingest a small public repo (optional server `GITHUB_API_TOKEN` fallback for the 60 req/h limit).
-4. README: architecture diagram, setup, env vars, design trade-offs, limitations, screenshot placeholders.
-5. Final CI green, push.
+## Next steps (after Phase 9)
+All planned phases are done. Candidates, roughly by value:
+1. Real screenshots for the README (`docs/screenshots/*.png`; the table lists the expected files).
+2. A real Kaggle run of vLLM 0.30.0 on 2x T4 (still unverified; fallback 0.18.1 documented).
+3. Move chat answers from API threads to dedicated workers if load grows.
+4. Optional chat rate limit (questions/minute) next to the analysis limit.
+5. Production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
@@ -166,6 +171,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-03: **Phase 9 complete**: coverage (93% backend in CI), Playwright E2E in CI, seed_demo, README. All phases done.
 - 2026-10-03: **Phase 8 complete**: limits, re-analysis, usage, private access re-checks, sweeper, JSON 404s.
 - 2026-10-02: **Phase 7 complete**: Q&A chat; real runs found two bugs fixed here (answers without searching; CSRF 403 on the stream POST).
 - 2026-10-01: **Phase 6 complete**: architecture map + guided tour + tour mode; real-model run surfaced the 120 s read-timeout trap for long JSON (fixed by streaming).

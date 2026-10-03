@@ -90,9 +90,9 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Tests (238 backend, 88 frontend)
 - [x] Push + CI
 
-## Phase 9 — Coverage, E2E, README, demo seed
-- [ ] Fill test coverage gaps
-- [ ] Playwright E2E main flow with mocked backend
-- [ ] `seed_demo` management command
-- [ ] README (architecture diagram, setup, env vars, design tradeoffs, limitations, screenshot placeholders)
-- [ ] Final CI green, push
+## Phase 9 — Coverage, E2E, README, demo seed — ✅ Completed (2026-10-03)
+- [x] Fill test coverage gaps (backend 93% in CI, frontend floors enforced)
+- [x] Playwright E2E main flow with mocked backend (CI job)
+- [x] `seed_demo` management command
+- [x] README (architecture diagram, setup, env vars, design tradeoffs, limitations, screenshot placeholders)
+- [x] Final CI green, push
