@@ -26,9 +26,19 @@ jobs:
           --health-timeout 10s
           --health-retries 12
           --health-start-period 40s
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DJANGO_SETTINGS_MODULE: config.settings.test
       MONGODB_URI: mongodb://localhost:27017/?directConnection=true
+      REDIS_URL: redis://localhost:6379/0
       REQUIRE_MONGO: "1"
       LOG_JSON: "false"
     steps:
@@ -44,8 +54,8 @@ jobs:
         run: ruff check .
       - name: Black
         run: black --check .
-      - name: Pytest
-        run: pytest
+      - name: Pytest (with coverage floor)
+        run: pytest --cov=apps --cov-report=term-missing:skip-covered --cov-fail-under=90
 
   frontend:
     name: Frontend (lint + typecheck + tests + build)
