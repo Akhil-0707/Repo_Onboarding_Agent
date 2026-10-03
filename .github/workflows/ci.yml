@@ -77,7 +77,7 @@ jobs:
         run: npm run format:check
       - name: Typecheck
         run: npm run typecheck
-      - name: Vitest
-        run: npm test
+      - name: Vitest (with coverage floor)
+        run: npm test -- --coverage
       - name: Build
         run: npm run build

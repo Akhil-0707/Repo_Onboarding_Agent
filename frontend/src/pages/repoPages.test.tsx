@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -117,5 +117,74 @@ describe("IngestionPage", () => {
     expect(await screen.findByText("Analysis failed")).toBeInTheDocument();
     expect(screen.getByText("Too many files")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
+  });
+
+  function renderProgress(stream: () => Response, onPost?: (body: unknown) => Response) {
+    const spy = mockFetch((url, init) => {
+      if (url.endsWith("/api/auth/refresh")) return jsonResponse({ access: "a", user });
+      if (url.endsWith("/job/stream")) return stream();
+      if (url.endsWith("/api/repos") && init?.method === "POST" && onPost) {
+        return onPost(JSON.parse(String(init.body)));
+      }
+      return jsonResponse(makeRepo({ status: "ingesting" }));
+    });
+    const result = renderWithProviders(<></>, {
+      path: "/repos/repo1/progress",
+      routes: [
+        { path: "/repos/:repoId/progress", element: <IngestionPage /> },
+        { path: "/repos/:repoId", element: <p>Workspace opened</p> },
+      ],
+      auth: true,
+    });
+    return { spy, ...result };
+  }
+
+  const event = (name: string, data: unknown) =>
+    `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
+
+  it("explains a pause while the model is offline", async () => {
+    renderProgress(() =>
+      sseResponse([event("snapshot", makeJob({ status: "waiting_for_model", progress: 70 }))]),
+    );
+    expect(await screen.findByText(/The AI model is offline/)).toBeInTheDocument();
+  });
+
+  it("opens the workspace when the job is done", async () => {
+    const { router } = renderProgress(() =>
+      sseResponse([
+        event("snapshot", makeJob({ status: "done", progress: 100 })),
+        event("end", { status: "done" }),
+      ]),
+    );
+    expect(await screen.findByText("Finished, opening workspace…")).toBeInTheDocument();
+    expect(await screen.findByText("Workspace opened", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/repos/repo1");
+  });
+
+  it("retries a failed analysis and reconnects to the new job", async () => {
+    let streams = 0;
+    const posted: unknown[] = [];
+    renderProgress(
+      () => {
+        streams += 1;
+        const job =
+          streams === 1
+            ? makeJob({ status: "failed", error: "Clone timed out" })
+            : makeJob({ status: "running", progress: 10 });
+        return sseResponse([event("snapshot", job)]);
+      },
+      (body) => {
+        posted.push(body);
+        return jsonResponse(
+          { repository: makeRepo(), job: makeJob(), created: true, cached: false },
+          201,
+        );
+      },
+    );
+    expect(await screen.findByText("Clone timed out")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /try again|retry/i }));
+    await waitFor(() => expect(screen.queryByText("Clone timed out")).not.toBeInTheDocument());
+    expect(posted).toEqual([{ url: makeRepo().url }]);
+    expect(streams).toBe(2);
   });
 });
