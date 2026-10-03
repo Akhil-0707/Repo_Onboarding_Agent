@@ -77,6 +77,13 @@ def set_runtime_value(key: str, value: str) -> None:
     invalidate_cache()
 
 
+def clear_runtime_value(key: str) -> None:
+    from apps.llm.models import RuntimeSetting
+
+    RuntimeSetting.objects.filter(key=key).delete()
+    invalidate_cache()
+
+
 def invalidate_cache() -> None:
     global _cached
     with _lock:

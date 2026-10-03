@@ -43,12 +43,18 @@ tunnel** gives it a public HTTPS URL that the RepoGuide backend calls.
    Public URL:  https://example-words-here.trycloudflare.com/v1
      LLM_BASE_URL=https://example-words-here.trycloudflare.com/v1
    ```
-   Put `LLM_BASE_URL` and `LLM_API_KEY` (the same value as the secret) in RepoGuide's `.env`.
-   To update an already running stack instead:
+   RepoGuide needs the **API key once**: put `LLM_API_KEY=<the same value as the
+   VLLM_API_KEY secret>` in RepoGuide's `.env` (create the file if you have none; one line is
+   enough) and run `docker compose up -d` so the containers pick it up. The key never changes
+   between sessions.
+   Then point the running stack at the URL (repeat this whenever the URL changes):
    ```bash
    docker compose exec backend python manage.py set_llm_url https://example-words-here.trycloudflare.com
    ```
-   The new URL is used within about 10 seconds, with no restart needed.
+   The new URL is used within about 10 seconds, with no restart needed. Without `--model`, the
+   command uses `LLM_MODEL` (default `Qwen/Qwen3-8B`), or the server's only model if it serves
+   exactly one, and clears any model chosen for a previous server (e.g. a local Ollama). If it
+   says the server *rejected the API key*, check `LLM_API_KEY` in `.env`.
 7. **Leave the last cell running.** It reports liveness every minute and restarts the tunnel if
    it drops. If the tunnel restarts, it prints a **new URL**, so run `set_llm_url` again.
 
