@@ -10,7 +10,8 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
 - **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
 - **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
-- **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30). No open tasks.
+- **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30).
+- **Celery dev auto-reload made real** (2026-10-03): `CELERY_RELOAD` was set in docker-compose but nothing read it. The worker/beat now run under watchfiles in dev; verified by editing a task file (worker and beat restarted). The running stack picks this up after `docker compose restart worker beat`. No open tasks.
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
@@ -23,7 +24,7 @@ Living document. Update after every meaningful step. A fresh session should be a
 5. Running backend tests locally against the Docker Mongo needs credentials:
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
 6. If `.venv/Scripts/black` says "Permission denied" (OneDrive/AV lock on the .exe), run `.venv/Scripts/python -m black` instead.
-7. After editing agent/analysis code, `docker compose restart worker` before a real run (its auto-reload can lag). If a run is interrupted, re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
+7. In dev the worker and beat restart by themselves when a `.py` file under `backend/` changes (watchfiles; ~10 s). A restart kills a running analysis: re-run it after editing. If a run is interrupted, re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
 
 ## How to run
 
@@ -83,7 +84,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | SSE stream: subscribe first, then snapshot, then incremental events; snapshot again on every 15 s keep-alive | No lost events; clients self-heal |
 | `get_db()` uses `connections[...].database` | `get_database()` returns a logging proxy in DEBUG that isn't a real `Database` |
 | Removing a repo only unlinks it from the user's dashboard | Snapshots are a shared cache keyed by commit SHA |
-| Celery worker/beat auto-reload in dev (`watchfiles`, `CELERY_RELOAD=1`) | Workers otherwise keep running stale code |
+| Celery worker/beat auto-reload in dev: `entrypoint.sh` runs them under `watchfiles --filter python … /app` when `CELERY_RELOAD` is set (docker-compose sets it; `watchfiles` pinned in `requirements-dev.txt`); production runs Celery directly | Workers otherwise keep running stale code |
 | Embeddings: `EmbeddingProvider` (`apps/search/embeddings`), local `SentenceTransformerProvider` (bge-small, 384-d, normalised, query prefix) or `OpenAICompatibleEmbeddingProvider`; `embed_in_batches` retries with backoff | Ingestion never depends on the Kaggle model; swappable |
 | ML deps in `requirements-ml.txt` (CPU-only torch 2.14.1 from the PyTorch CPU index) — installed in the Docker image, **not** in CI/unit tests (they use `tests/fakes/embeddings.HashingEmbeddingProvider`) | Avoids ~3 GB of CUDA libs and a 1 GB install in CI |
 | Embedding vectors reused across snapshots via `embed_hash` = sha256(model + text) | Re-analysing a new commit only embeds changed chunks |
@@ -198,11 +199,12 @@ Later candidates: chat answers in dedicated workers if load grows; production de
 - Local test session without GitHub OAuth: issue a refresh token for a user via `manage.py shell` (`apps.accounts.services.issue_tokens`) and set it as the `rg_refresh` cookie (path `/api/auth/`) on localhost:5173.
 - Windows Python scripts that edit files must pass `encoding="utf-8"` (default is cp1252).
 - Git Bash rewrites `/tmp/...` arguments passed to `docker compose exec` into Windows paths: prefix those commands with `MSYS_NO_PATHCONV=1` (but not `docker compose cp`, whose host-side path needs the conversion).
-- The Celery worker's auto-reload can lag behind edits; after changing agent/analysis code, `docker compose restart worker` before a real run (a stale worker produced an old error message once).
+- Until 2026-10-03 `CELERY_RELOAD` was set but never read, so the worker never reloaded (a stale worker produced an old error message once). The reload now works; it watches `.py` files only, so after changing anything else the worker reads (e.g. `.env`, requirements) run `docker compose restart worker beat` (or rebuild).
 - GitHub's anonymous API limit (60 requests/hour per IP) is shared by every local tool; `seed_demo` accepts `GITHUB_API_TOKEN`, signed-in users use their own token.
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: Celery worker/beat dev auto-reload actually wired up (`CELERY_RELOAD` → watchfiles in `entrypoint.sh`); verified live on a task-file edit.
 - 2026-10-03: Creating a conversation checks the chat quota first (no empty conversations left by a refused first question).
 - 2026-10-03: Per-user chat question limit (30/hour default) with usage reporting and Settings display; verified live on Qwen3-8B.
 - 2026-10-03: Glossary re-run on Qwen3-8B confirms the prompt fix (8 API terms, no script names); chat screenshot re-shot without the test label.

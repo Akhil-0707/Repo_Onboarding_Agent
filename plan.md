@@ -111,3 +111,8 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Chat quota in `GET /api/usage` and on the Settings page
 - [x] Creating a conversation checks the quota without counting (no empty conversations)
 - [x] Tests (274 backend, 95 frontend) + live check on Qwen3-8B
+
+## Celery dev auto-reload — ✅ Completed (2026-10-03)
+- [x] `entrypoint.sh` runs worker/beat under `watchfiles --filter python` when `CELERY_RELOAD` is set (production path unchanged)
+- [x] Pin `watchfiles` in `requirements-dev.txt`
+- [x] Verified live: editing a task file restarts the worker and beat; non-Python edits ignored; clean stop
