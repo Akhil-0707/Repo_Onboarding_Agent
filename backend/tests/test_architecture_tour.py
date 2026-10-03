@@ -265,3 +265,20 @@ def test_tour_titles_lose_redundant_kind_prefixes(index: FileIndex) -> None:
         "place_order",
         "Configuration",
     ]
+
+
+def test_architecture_repair_and_render_are_idempotent(index: FileIndex) -> None:
+    import copy
+
+    data = {
+        "modules": [module("api", ["src/api/"]), module("core", ["src/core/"]),
+                    module("db", ["src/db/"], kind="data")],
+        "edges": [{"source": "api", "target": "core", "label": "calls"}],
+    }  # fmt: skip
+    repair_architecture(data, index)
+    once = copy.deepcopy(data)
+    first = render_mermaid(once)
+    repair_architecture(data, index)  # e.g. re-applying newer repair rules to stored output
+    assert data == once
+    assert render_mermaid(data) == first
+    assert '-.->|"1 import"|' in first  # derived edges stay dashed and labelled

@@ -386,6 +386,8 @@ def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int =
     edges: list[dict[str, Any]] = []
     pairs: set[tuple[str, str]] = set()
     for edge in data.get("edges", []):
+        if edge.get("derived"):
+            continue  # from an earlier pass: re-derived from the import graph below
         source, target = resolve(edge.get("source", "")), resolve(edge.get("target", ""))
         if not source or not target or source == target or (source, target) in pairs:
             continue
