@@ -3,19 +3,22 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 9 complete. **All planned phases (1–9) are done.** Possible next work is listed under "Next steps (after Phase 9)".
+- **Phase:** 9 complete. **All planned phases (1–9) are done.** Since then: real README screenshots, dev tooling, and the **Kaggle model server is verified working** (2026-10-03).
 - **Last commit:** see `git log -1`.
-- **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for local testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
+- **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://healing-cookie-mart-skip.trycloudflare.com/v1` and dies when the notebook stops.
+- **`.env`** (gitignored) now exists and holds only `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`), created by the developer. Never print or commit it. All other settings use defaults.
+- **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
+- **In progress when this was written:** real-model checks on Qwen3-8B. Chat is done (results under Completed). **Not yet done:** a full analysis re-run on the 8B model (planned: commander.js, all 5 sections) to compare with the 4B output.
 
 ## ▶ Resume here (fresh session)
-1. All phases are complete. Confirm CI for the last push is green (`gh run list --limit 1`), then pick from "Next steps (after Phase 9)" below.
-2. To re-run the analysis on the local commander.js snapshot (only missing sections are generated):
-   `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the repo with `initial_steps()` (all steps except `analyze` marked done, status running) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`.
-3. Running backend tests locally against the Docker Mongo needs credentials:
+1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
+2. **Model server:** on Kaggle, open the RepoGuide notebook (GPU T4 x2, Internet on, secret `VLLM_API_KEY` attached) → Run All → copy the `Public URL: …trycloudflare.com/v1` line → `docker compose exec backend python manage.py set_llm_url <url>`. It should print `Model 'Qwen/Qwen3-8B' is online`. A fresh tunnel can refuse connections for ~1 minute; just re-run `set_llm_url`. Without Kaggle, use local Ollama instead: start the Ollama app, then `set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`.
+3. **Next task:** re-run the full analysis of commander.js on Qwen3-8B and compare with the 4B output (notes below), e.g. in `manage.py shell`: delete `Analysis` for the repo, then `apps.repos.services._enqueue_analysis_only(repo, user)`; watch `docker compose logs -f worker`. Then optionally regenerate the README screenshots from the 8B output (`export_snapshot` + `npm run screenshots`, see `frontend/e2e/screenshots.spec.ts`).
+4. To look at the app signed in: `docker compose exec backend python manage.py login_link e2e-check` → open the printed link within 60 s (user `e2e-check` has commander.js and itsdangerous on its dashboard).
+5. Running backend tests locally against the Docker Mongo needs credentials:
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
-4. If `.venv/Scripts/black` says "Permission denied" (OneDrive/AV lock on the .exe), run `.venv/Scripts/python -m black` instead.
-5. Backend code edits auto-reload the Celery worker (watchfiles): don't edit backend files while a real analysis is running, or it restarts mid-run. If that happens, restart the worker and re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
-6. Browser checks of authenticated pages need a session for a local test user; the assistant's tooling may refuse to inject tokens into the browser. Log in yourself (GitHub OAuth) or set the `rg_refresh` cookie manually.
+6. If `.venv/Scripts/black` says "Permission denied" (OneDrive/AV lock on the .exe), run `.venv/Scripts/python -m black` instead.
+7. After editing agent/analysis code, `docker compose restart worker` before a real run (its auto-reload can lag). If a run is interrupted, re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
 
 ## How to run
 
@@ -133,6 +136,10 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
 
 ## Completed
+- **Kaggle / Qwen3-8B (2026-10-03):** vLLM 0.30.0 serving Qwen3-8B on 2× T4 via cloudflared; `set_llm_url` switched the stack from Ollama (model override cleared, ~600 ms health round trip). Real chat on commander.js:
+  - "How does Commander handle an option that requires a value?": 61 s, 3 LLM calls, 1 search, **4 valid citations** (`lib/option.js:15-17`, `:19-21`, `:165-172`, `lib/command.js:2070-2073`). Correctly explains `<value>` → `required`, plus `mandatory`, value collection and the missing-mandatory error: more complete than the 4B answer (which blurred required vs mandatory).
+  - "Where is the code that sends emails?": 10 s, searched first, honest "couldn't find", no citations.
+  - Streaming worked end to end (tokens, one retracted draft, tool steps, citations).
 - **Phase 9:** tests for the GitHub REST/OAuth clients (error translation, token fallback), encryption configuration, the real Redis event bus, health endpoint and management commands; real Shiki highlighting and ingestion page states; CI coverage floors and a Redis service; Playwright E2E (main flow: landing → dashboard → live progress → workspace tabs incl. real Mermaid → tour mode by keyboard → streamed cited chat → dashboard; plus offline chat) in a new CI job; `seed_demo` command; full README (architecture diagram, setup, model server, config, API, development, trade-offs, security, limitations, screenshot placeholders). Tests: 263 backend (93% coverage in CI), 94 frontend, 2 E2E.
 - **Phase 8:** per-user new-analysis rate limit (cache hits free; 429 `rate_limited` with `retry_after_seconds`), `POST /api/repos/{id}/reanalyze`, usage endpoints (`GET /api/usage` incl. rate-limit status and pricing, `GET /api/repos/{id}/usage`), private-repo access re-checks, stale-job sweeper with job heartbeats, JSON 404 catch-all; frontend Settings usage section (tokens, model time, cost, quota, per-repo table) and workspace Re-analyze action with outcome notices. Live checks: real usage on commander.js (58,729 analysis tokens / 17 calls), Re-analyze surfaced GitHub's unauthenticated rate limit as a clean 502, JSON 404 in dev. Tests: 238 backend, 88 frontend.
 - **Phase 7:** `apps/chat` (Thread/Message models, CRUD + messages API, streaming endpoint `POST /api/repos/{id}/threads/{tid}/messages/stream` with events start/tool_start/tool_end/token/retract/citation/done/error; 503 `model_offline` and 409 `repo_not_ready` before streaming), agent loop streaming mode, citation processing, history digest, embedding warm-up; frontend chat panel (threads select/new/delete, starter questions incl. from Overview, live research steps, streamed draft, cited answers with chips into the code viewer, Stop, offline banner). Real checks with Ollama qwen3:4b-instruct on commander.js: 4-tool answer with 2 validated citations in 53 s; honest "not found" after a real search; through uvicorn first token 7.3 s, disconnect mid-answer recorded as interrupted. Tests: 227 backend, 82 frontend.
@@ -145,7 +152,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
 
 ## Known issues / TODOs / blockers
-- The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
+- vLLM 0.30.0 on Kaggle 2× T4 is **verified** (2026-10-03) once torchaudio is removed; the install cell falls back to 0.18.1 automatically if PyTorch cannot use the GPUs.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
 ## Next steps (after Phase 9)
@@ -178,6 +185,7 @@ Later candidates: chat answers in dedicated workers if load grows; a chat rate l
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-03: **Kaggle model server verified**: fixed the torchaudio/CUDA clash in the notebook (v2026-10-03.3), stack switched to Qwen3-8B, real chat checks passed. Full 8B analysis re-run still to do.
 - 2026-10-03: Post-Phase 9: real screenshots, login_link, export_snapshot, set_llm_url model switching, flow-trace pick (real 4B: 1.6 s vs three failed ~100 s rewrites), idempotent architecture repair; itsdangerous analysed 5/5.
 - 2026-10-03: **Phase 9 complete**: coverage (93% backend in CI), Playwright E2E in CI, seed_demo, README. All phases done.
 - 2026-10-03: **Phase 8 complete**: limits, re-analysis, usage, private access re-checks, sweeper, JSON 404s.
