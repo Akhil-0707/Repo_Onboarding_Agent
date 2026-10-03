@@ -109,4 +109,5 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Per-user chat question limit (`RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour), counted only after the pre-checks pass
 - [x] 429 `rate_limited` envelope with `retry_after_seconds` from the stream endpoint; question text given back in the UI
 - [x] Chat quota in `GET /api/usage` and on the Settings page
+- [x] Creating a conversation checks the quota without counting (no empty conversations)
 - [x] Tests (274 backend, 95 frontend) + live check on Qwen3-8B

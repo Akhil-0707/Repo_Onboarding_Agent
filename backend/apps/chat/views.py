@@ -12,6 +12,7 @@ from apps.accounts.models import User
 from apps.chat.models import Message, Thread
 from apps.chat.serializers import MessageSerializer, ThreadDetailSerializer, ThreadSerializer
 from apps.common.errors import NotFoundError
+from apps.repos.quota import ensure_chat_question_left
 from apps.repos.services import get_user_repository
 
 
@@ -43,6 +44,8 @@ class ThreadListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer: BaseSerializer[Any]) -> None:
         repository = get_user_repository(self.request.user, self.kwargs["repo_id"])
+        # A conversation exists to ask a question: none left this hour -> don't create one.
+        ensure_chat_question_left(self.request.user)
         serializer.save(user=self.request.user, repository=repository)
 
 

@@ -80,15 +80,27 @@ def consume_new_analysis(request: Request) -> None:
     )
 
 
-def consume_chat_question(user: User) -> None:
-    quota = UserQuota(CHAT_QUESTION, user)
-    wait = quota.consume()
-    if wait is None:
-        return
-    raise RateLimited(
+def _chat_limited(quota: UserQuota, wait: int) -> RateLimited:
+    return RateLimited(
         f"You can ask {quota.num_requests} questions per hour. Try again in {_wait_text(wait)}.",
         details={"retry_after_seconds": wait},
     )
+
+
+def consume_chat_question(user: User) -> None:
+    quota = UserQuota(CHAT_QUESTION, user)
+    wait = quota.consume()
+    if wait is not None:
+        raise _chat_limited(quota, wait)
+
+
+def ensure_chat_question_left(user: User) -> None:
+    """Raise if ``user`` cannot ask now, without counting anything (e.g. before creating a
+    conversation, so a limited first question does not leave an empty one behind)."""
+    quota = UserQuota(CHAT_QUESTION, user)
+    status = quota.status()
+    if status["remaining"] == 0:
+        raise _chat_limited(quota, status["reset_in_seconds"])
 
 
 def quota_status(user: User, scope: str = NEW_ANALYSIS) -> dict[str, int]:

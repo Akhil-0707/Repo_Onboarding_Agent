@@ -54,7 +54,8 @@ function mockChatBackend({
       sse("citation", answer.citations[0]),
       sse("done", { message: answer }),
     ]),
-}: { online?: boolean; stream?: () => Response } = {}) {
+  create,
+}: { online?: boolean; stream?: () => Response; create?: () => Response } = {}) {
   const messages: ChatMessage[] = [];
   const threads: (typeof thread)[] = [];
   const calls: { url: string; method: string; body?: unknown }[] = [];
@@ -73,6 +74,7 @@ function mockChatBackend({
       return jsonResponse({ count: threads.length, next: null, previous: null, results: threads });
     }
     if (url.endsWith("/threads") && method === "POST") {
+      if (create) return create();
       threads.push(thread);
       return jsonResponse(thread, 201);
     }
@@ -168,6 +170,28 @@ describe("ChatPanel", () => {
     await userEvent.type(await screen.findByLabelText("Ask a question"), "Hi?{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("The AI model is offline.");
     await waitFor(() => expect(screen.getByLabelText("Ask a question")).toHaveValue("Hi?"));
+  });
+
+  it("does not ask when no conversation can be started", async () => {
+    const { calls } = mockChatBackend({
+      create: () =>
+        jsonResponse(
+          {
+            error: {
+              code: "rate_limited",
+              message: "You can ask 30 questions per hour. Try again in 12 minutes.",
+              details: { retry_after_seconds: 700 },
+            },
+          },
+          429,
+        ),
+    });
+    renderPanel();
+    await userEvent.type(await screen.findByLabelText("Ask a question"), "Hi?{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("30 questions per hour");
+    await waitFor(() => expect(screen.getByLabelText("Ask a question")).toHaveValue("Hi?"));
+    expect(calls.some((c) => c.url.endsWith("/messages/stream"))).toBe(false);
+    expect(screen.queryByRole("option", { name: /Untitled/ })).not.toBeInTheDocument();
   });
 
   it("asks an external question once on mount", async () => {

@@ -143,7 +143,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Glossary terms whose cited file never mentions them lose the location (then symbol lookup) | Real 8B run: npm script names cited to `.prettierignore` |
 | Architecture drops modules that own no files (all claimed by more specific modules) and external modules with no edges | Real 8B run: a `lib/` umbrella next to one module per lib file, with "uses" edges backed by no imports |
 | Answer lists keep their numbering across blank lines (`<ol start>`) | 8B writes loose lists; every item rendered as "1." |
-| Chat limit (`RATE_LIMIT_CHAT_QUESTIONS`, 30/hour) shares `apps/repos/quota.UserQuota` (per-user, per-scope sliding window in the cache) with the analysis limit; a question counts only after auth/ownership/input/repo-ready/model-online checks pass, right before the answer starts; 429 `rate_limited` + `retry_after_seconds`; `GET /api/usage` → `rate_limit.chat_questions`, shown on Settings | One Kaggle model serves everyone and each answer holds it for up to a minute; rejected requests must not burn quota |
+| Chat limit (`RATE_LIMIT_CHAT_QUESTIONS`, 30/hour) shares `apps/repos/quota.UserQuota` (per-user, per-scope sliding window in the cache) with the analysis limit; a question counts only after auth/ownership/input/repo-ready/model-online checks pass, right before the answer starts; creating a conversation only *checks* the quota (no empty conversation when the first question would be refused); 429 `rate_limited` + `retry_after_seconds`; `GET /api/usage` → `rate_limit.chat_questions`, shown on Settings | One Kaggle model serves everyone and each answer holds it for up to a minute; rejected requests must not burn quota |
 
 ## Completed
 - **Qwen3-8B analysis vs 4B (2026-10-03, commander.js, all 5 sections done):**
@@ -203,6 +203,7 @@ Later candidates: chat answers in dedicated workers if load grows; production de
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: Creating a conversation checks the chat quota first (no empty conversations left by a refused first question).
 - 2026-10-03: Per-user chat question limit (30/hour default) with usage reporting and Settings display; verified live on Qwen3-8B.
 - 2026-10-03: Glossary re-run on Qwen3-8B confirms the prompt fix (8 API terms, no script names); chat screenshot re-shot without the test label.
 - 2026-10-03: **Qwen3-8B analysis re-run** on commander.js (5/5 sections); fixed tour ranges, glossary locations, architecture umbrellas, chat list numbering; README screenshots regenerated from 8B. Glossary prompt re-run pending (Kaggle session ended).

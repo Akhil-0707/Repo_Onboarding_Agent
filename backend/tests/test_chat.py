@@ -288,7 +288,17 @@ def test_questions_are_rate_limited_per_user(
 
     quota = client.get("/api/usage").json()["rate_limit"]["chat_questions"]
     assert quota["limit"] == 2 and quota["remaining"] == 0 and quota["reset_in_seconds"] > 0
+
+    # No empty conversation is created while no question is left; checking does not count.
+    threads = Thread.objects.count()
+    blocked = client.post(f"/api/repos/{repo.pk}/threads", {}, format="json")
+    assert blocked.status_code == 429 and blocked.json()["error"]["code"] == "rate_limited"
+    assert 0 < blocked.json()["error"]["details"]["retry_after_seconds"] <= 3600
+    assert Thread.objects.count() == threads
     other = client_for(User.objects.create(username="bob", github_id=2))
+    assert other.get("/api/usage").json()["rate_limit"]["chat_questions"]["remaining"] == 2
+    UserRepository.objects.create(user=User.objects.get(username="bob"), repository=repo)
+    assert other.post(f"/api/repos/{repo.pk}/threads", {}, format="json").status_code == 201
     assert other.get("/api/usage").json()["rate_limit"]["chat_questions"]["remaining"] == 2
 
 
