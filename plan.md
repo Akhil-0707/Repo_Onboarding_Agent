@@ -104,3 +104,9 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Repair fixes from that run (tour range focusing, glossary location check, architecture umbrella pruning) + chat list numbering
 - [x] README screenshots regenerated from the 8B output
 - [x] Verify the glossary prompt change (no package-script names) with one Glossary re-run on Qwen3-8B
+
+## Chat rate limit — ✅ Completed (2026-10-03)
+- [x] Per-user chat question limit (`RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour), counted only after the pre-checks pass
+- [x] 429 `rate_limited` envelope with `retry_after_seconds` from the stream endpoint; question text given back in the UI
+- [x] Chat quota in `GET /api/usage` and on the Settings page
+- [x] Tests (274 backend, 95 frontend) + live check on Qwen3-8B

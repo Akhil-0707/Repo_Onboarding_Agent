@@ -17,7 +17,7 @@ from apps.analysis.models import Analysis
 from apps.chat.models import Message, MessageRole, Thread
 from apps.llm.cost import sum_usage
 from apps.repos.models import IngestionJob, Repository, UserRepository
-from apps.repos.quota import quota_status
+from apps.repos.quota import CHAT_QUESTION, NEW_ANALYSIS, quota_status
 
 
 def _chat_by_repo(user: User, repository: Repository | None = None) -> dict[Any, dict[str, Any]]:
@@ -102,6 +102,9 @@ def user_usage(user: User) -> dict[str, Any]:
             "all": sum_usage([analysis_total, chat_total]),
         },
         "repositories": rows,
-        "rate_limit": {"new_analyses": quota_status(user)},
+        "rate_limit": {
+            "new_analyses": quota_status(user, NEW_ANALYSIS),
+            "chat_questions": quota_status(user, CHAT_QUESTION),
+        },
         "pricing": pricing(),
     }

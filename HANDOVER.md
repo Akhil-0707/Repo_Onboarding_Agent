@@ -9,7 +9,8 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **`.env`** (gitignored) now exists and holds only `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`), created by the developer. Never print or commit it. All other settings use defaults.
 - **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
 - **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
-- **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names. No open tasks.
+- **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
+- **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30). No open tasks.
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
@@ -142,6 +143,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Glossary terms whose cited file never mentions them lose the location (then symbol lookup) | Real 8B run: npm script names cited to `.prettierignore` |
 | Architecture drops modules that own no files (all claimed by more specific modules) and external modules with no edges | Real 8B run: a `lib/` umbrella next to one module per lib file, with "uses" edges backed by no imports |
 | Answer lists keep their numbering across blank lines (`<ol start>`) | 8B writes loose lists; every item rendered as "1." |
+| Chat limit (`RATE_LIMIT_CHAT_QUESTIONS`, 30/hour) shares `apps/repos/quota.UserQuota` (per-user, per-scope sliding window in the cache) with the analysis limit; a question counts only after auth/ownership/input/repo-ready/model-online checks pass, right before the answer starts; 429 `rate_limited` + `retry_after_seconds`; `GET /api/usage` → `rate_limit.chat_questions`, shown on Settings | One Kaggle model serves everyone and each answer holds it for up to a minute; rejected requests must not burn quota |
 
 ## Completed
 - **Qwen3-8B analysis vs 4B (2026-10-03, commander.js, all 5 sections done):**
@@ -180,7 +182,7 @@ Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, sm
 Waiting on the developer:
 1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
 2. **Kaggle run**: follow `kaggle/README.md`; put `LLM_API_KEY` in `.env` (create it; one line is enough), `docker compose up -d`, then `set_llm_url <tunnel URL>`. That also switches the stack away from Ollama. Then re-run the smoke tests (re-analyse a repo, ask a chat question) on Qwen3-8B.
-Later candidates: chat answers in dedicated workers if load grows; a chat rate limit; production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
+Later candidates: chat answers in dedicated workers if load grows; production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
@@ -201,6 +203,7 @@ Later candidates: chat answers in dedicated workers if load grows; a chat rate l
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: Per-user chat question limit (30/hour default) with usage reporting and Settings display; verified live on Qwen3-8B.
 - 2026-10-03: Glossary re-run on Qwen3-8B confirms the prompt fix (8 API terms, no script names); chat screenshot re-shot without the test label.
 - 2026-10-03: **Qwen3-8B analysis re-run** on commander.js (5/5 sections); fixed tour ranges, glossary locations, architecture umbrellas, chat list numbering; README screenshots regenerated from 8B. Glossary prompt re-run pending (Kaggle session ended).
 - 2026-10-01: Plan approved; repo initialised with remote `origin` (github.com/Akhil-0707/Repo_Onboarding_Agent).

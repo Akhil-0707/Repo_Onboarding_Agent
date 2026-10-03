@@ -160,7 +160,7 @@ each one. The important groups:
 | Model | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_*_TIMEOUT`, `LLM_MAX_RETRIES`, `LLM_DISABLE_THINKING`, `LLM_GUIDED_JSON`, `LLM_COST_PER_1K_*` |
 | Embeddings | `EMBEDDING_PROVIDER` (`local` or `openai`), `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `EMBEDDING_WARMUP` |
 | Agents | `ANALYSIS_MAX_ITERATIONS`, `ANALYSIS_TOKEN_BUDGET`, `ANALYSIS_MAX_WAIT_HOURS`, `CHAT_*` |
-| Limits & jobs | `RATE_LIMIT_NEW_ANALYSES` (default `5/hour`), `INGEST_MAX_*`, `INGEST_STALE_MINUTES`, `PRIVATE_ACCESS_RECHECK_HOURS` |
+| Limits & jobs | `RATE_LIMIT_NEW_ANALYSES` (default `5/hour`), `RATE_LIMIT_CHAT_QUESTIONS` (default `30/hour`), `INGEST_MAX_*`, `INGEST_STALE_MINUTES`, `PRIVATE_ACCESS_RECHECK_HOURS` |
 | Ports | `BACKEND_HOST_PORT`, `FRONTEND_HOST_PORT`, `MONGO_HOST_PORT`, `REDIS_HOST_PORT` |
 
 ## API overview
@@ -236,7 +236,7 @@ Playwright suite.
   scoped to the auth endpoints, rotated on use and revocable.
 - Private repositories: a cached analysis is only shown while GitHub confirms the user's access,
   re-checked periodically; losing access removes it from the user's dashboard.
-- Per-user rate limit on new analyses; clones are shallow, size- and file-count-limited and run
+- Per-user rate limits on new analyses and chat questions; clones are shallow, size- and file-count-limited and run
   without hooks or symlinks.
 
 ## Known limitations

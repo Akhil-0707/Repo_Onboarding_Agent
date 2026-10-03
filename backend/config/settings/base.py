@@ -182,6 +182,7 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.common.errors.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
         "new_analysis": env("RATE_LIMIT_NEW_ANALYSES", "5/hour"),
+        "chat_question": env("RATE_LIMIT_CHAT_QUESTIONS", "30/hour"),
     },
 }
 

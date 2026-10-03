@@ -259,6 +259,39 @@ def test_offline_model_and_bad_requests_fail_before_streaming(
     assert not_ready.status_code == 409 and not_ready.json()["error"]["code"] == "repo_not_ready"
 
 
+def test_questions_are_rate_limited_per_user(
+    repo: Repository, monkeypatch: pytest.MonkeyPatch, settings: Any
+) -> None:
+    settings.REST_FRAMEWORK = {
+        **settings.REST_FRAMEWORK,
+        "DEFAULT_THROTTLE_RATES": {
+            **settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "chat_question": "2/hour",
+        },
+    }  # fmt: skip
+    set_llm_client(ScriptedLLM(*[reply(tool_calls=[call("list_directory", {})]), reply("Ok.")] * 2))
+    client = owner_client(repo)
+    thread_id = new_thread(client, repo)
+
+    # Requests rejected before the model is asked do not count.
+    monkeypatch.setattr(stream, "check_llm_health", lambda: SimpleNamespace(online=False))
+    assert ask(client, repo, thread_id, "Hello?").status_code == 503
+    monkeypatch.setattr(stream, "check_llm_health", lambda: SimpleNamespace(online=True))
+
+    for question in ("One?", "Two?"):
+        assert events_of(ask(client, repo, thread_id, question))[-1][0] == "done"
+    limited = ask(client, repo, thread_id, "Three?")
+    assert limited.status_code == 429
+    error = limited.json()["error"]
+    assert error["code"] == "rate_limited" and "2 questions per hour" in error["message"]
+    assert 0 < error["details"]["retry_after_seconds"] <= 3600
+    assert not Message.objects.filter(thread_id=thread_id, content="Three?").exists()
+
+    quota = client.get("/api/usage").json()["rate_limit"]["chat_questions"]
+    assert quota["limit"] == 2 and quota["remaining"] == 0 and quota["reset_in_seconds"] > 0
+    other = client_for(User.objects.create(username="bob", github_id=2))
+    assert other.get("/api/usage").json()["rate_limit"]["chat_questions"]["remaining"] == 2
+
+
 def test_cancelled_answer_stops_quietly(repo: Repository) -> None:
     set_llm_client(ScriptedLLM(reply("Never shown.")))
     user = UserRepository.objects.get(repository=repo).user

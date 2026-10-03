@@ -42,7 +42,7 @@ export interface UserUsage {
     analysis: UsageTotals | null;
     chat: ChatUsage | null;
   }[];
-  rate_limit: { new_analyses: Quota };
+  rate_limit: { new_analyses: Quota; chat_questions: Quota };
   pricing: Pricing;
 }
 

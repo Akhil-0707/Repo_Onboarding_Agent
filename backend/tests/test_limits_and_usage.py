@@ -62,7 +62,7 @@ def analyze(client: APIClient, name: str = "py_app") -> Any:
 def limit_two(settings: Any) -> None:
     settings.REST_FRAMEWORK = {
         **settings.REST_FRAMEWORK,
-        "DEFAULT_THROTTLE_RATES": {"new_analysis": "2/hour"},
+        "DEFAULT_THROTTLE_RATES": {"new_analysis": "2/hour", "chat_question": "30/hour"},
     }
 
 

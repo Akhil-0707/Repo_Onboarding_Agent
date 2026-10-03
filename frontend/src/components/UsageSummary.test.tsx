@@ -52,6 +52,13 @@ function usage(overrides: Partial<UserUsage> = {}): UserUsage {
         reset_in_seconds: 1500,
         window_seconds: 3600,
       },
+      chat_questions: {
+        limit: 30,
+        used: 4,
+        remaining: 26,
+        reset_in_seconds: 0,
+        window_seconds: 3600,
+      },
     },
     pricing: { input_per_1k: 0, output_per_1k: 0, self_hosted: true },
     ...overrides,
@@ -70,6 +77,7 @@ describe("UsageSummary", () => {
     expect(screen.getByText("17 s")).toBeInTheDocument();
     expect(screen.getByText("≈$0 (self-hosted)")).toBeInTheDocument();
     expect(screen.getByText(/0 of 5 left this hour \(next one in 25 min\)/)).toBeInTheDocument();
+    expect(screen.getByText(/26 of 30 left this hour\.$/)).toBeInTheDocument();
 
     const rows = within(screen.getByRole("table")).getAllByRole("row");
     expect(rows[1]).toHaveTextContent("acme/api@abcdef1");

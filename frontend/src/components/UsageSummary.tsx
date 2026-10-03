@@ -34,6 +34,8 @@ export function UsageSummary() {
   const { totals, repositories, rate_limit, pricing } = usage.data;
   const quota = rate_limit.new_analyses;
   const resetMinutes = Math.ceil(quota.reset_in_seconds / 60);
+  const chat = rate_limit.chat_questions;
+  const chatResetMinutes = Math.ceil(chat.reset_in_seconds / 60);
 
   return (
     <div className="mt-3 flex flex-col gap-5 text-sm">
@@ -59,6 +61,12 @@ export function UsageSummary() {
         <span className="text-slate-500">
           Repositories someone already analysed open instantly and do not count.
         </span>
+      </p>
+
+      <p>
+        <span className="font-medium">Chat questions:</span> {chat.remaining} of {chat.limit} left
+        this hour
+        {chat.remaining === 0 && chatResetMinutes > 0 && ` (next one in ${chatResetMinutes} min)`}.
       </p>
 
       {repositories.length > 0 && (
