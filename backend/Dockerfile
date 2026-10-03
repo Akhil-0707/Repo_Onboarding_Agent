@@ -5,6 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=60 \
+    PIP_RESUME_RETRIES=30 \
     HF_HOME=/home/app/.cache/huggingface
 
 # git is needed to shallow-clone analysed repositories (never to run their code).

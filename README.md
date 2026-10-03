@@ -135,6 +135,14 @@ model is enough (expect slower, simpler output):
 docker compose exec backend python manage.py set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct
 ```
 
+### Production
+
+`docker-compose.yml` is for development. To deploy behind HTTPS, use
+[`docker-compose.prod.yml`](docker-compose.prod.yml) with
+[`.env.production.example`](.env.production.example) and follow
+[`docs/deployment.md`](docs/deployment.md): reverse proxy, model server, backups, security
+checklist, sizing and troubleshooting.
+
 ### Demo data
 
 ```bash

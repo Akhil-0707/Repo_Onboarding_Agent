@@ -116,3 +116,10 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] `entrypoint.sh` runs worker/beat under `watchfiles --filter python` when `CELERY_RELOAD` is set (production path unchanged)
 - [x] Pin `watchfiles` in `requirements-dev.txt`
 - [x] Verified live: editing a task file restarts the worker and beat; non-Python edits ignored; clean stop
+
+## Production deployment — ✅ Completed (2026-10-03)
+- [x] `config.settings.prod`: DEBUG forced off, fail fast on development secrets, HTTPS-only cookies and redirect, proxy SSL header, HSTS opt-in, quiet DisallowedHost
+- [x] `docker-compose.prod.yml` + `.env.production.example` (single host, only nginx published)
+- [x] nginx: keep the proxy's `X-Forwarded-Proto`, immutable caching for hashed assets
+- [x] `docs/deployment.md` (reverse proxy, model server, backups, security checklist, sizing, troubleshooting), linked from the README
+- [x] Tests (prod settings) + prod stack run locally and checked end to end

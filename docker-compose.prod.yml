@@ -1,0 +1,97 @@
+# Production stack for a single host. See docs/deployment.md.
+#
+#   cp .env.production.example .env      # on the server; fill in every value
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Only `frontend` publishes a port (plain HTTP); put a TLS-terminating reverse proxy in front of
+# it. MongoDB and Redis stay on the internal network.
+name: repoguide-prod
+
+x-backend: &backend
+  build:
+    context: ./backend
+  image: repoguide-backend:prod
+  restart: unless-stopped
+  env_file:
+    - path: ${ENV_FILE:-.env}
+      required: true
+  environment: &backend-env
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    MONGODB_URI: ${MONGODB_URI:-mongodb://${MONGO_ROOT_USER:-repoguide}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/?directConnection=true&authSource=admin}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  volumes:
+    - hf_cache:/home/app/.cache/huggingface
+  depends_on:
+    mongo:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  mongo:
+    image: mongodb/mongodb-atlas-local:8.0
+    restart: unless-stopped
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-repoguide}
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+      - mongot_data:/data/mongot
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    <<: *backend
+    command: ["web"]
+    environment:
+      <<: *backend-env
+      # Requests only arrive through the frontend container's nginx.
+      FORWARDED_ALLOW_IPS: "*"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+
+  # Exactly one beat: it schedules the model probe, the analysis resume and the job sweeper.
+  beat:
+    <<: *backend
+    command: ["beat"]
+    volumes: []
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    image: repoguide-frontend:prod
+    restart: unless-stopped
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  hf_cache:
+  mongo_data:
+  mongo_config:
+  mongot_data:

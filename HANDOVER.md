@@ -11,7 +11,8 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
 - **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
 - **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30).
-- **Celery dev auto-reload made real** (2026-10-03): `CELERY_RELOAD` was set in docker-compose but nothing read it. The worker/beat now run under watchfiles in dev; verified by editing a task file (worker and beat restarted). The running stack picks this up after `docker compose restart worker beat`. No open tasks.
+- **Celery dev auto-reload made real** (2026-10-03): `CELERY_RELOAD` was set in docker-compose but nothing read it. The worker/beat now run under watchfiles in dev; verified by editing a task file (worker and beat restarted). The running stack picks this up after `docker compose restart worker beat`.
+- **Production deployment** (2026-10-03): `docs/deployment.md`, `docker-compose.prod.yml`, `.env.production.example`, `config.settings.prod`. Verified by running the prod stack locally (port 8088, throwaway secrets, removed afterwards). No open tasks.
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
@@ -144,6 +145,8 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | Glossary terms whose cited file never mentions them lose the location (then symbol lookup) | Real 8B run: npm script names cited to `.prettierignore` |
 | Architecture drops modules that own no files (all claimed by more specific modules) and external modules with no edges | Real 8B run: a `lib/` umbrella next to one module per lib file, with "uses" edges backed by no imports |
 | Answer lists keep their numbering across blank lines (`<ol start>`) | 8B writes loose lists; every item rendered as "1." |
+| Production = `config.settings.prod` (DEBUG forced off; refuses dev secret key, missing `TOKEN_ENCRYPTION_KEYS`/GitHub OAuth, non-https `FRONTEND_URL`) + `docker-compose.prod.yml` (no source mounts/reload, only nginx published on 127.0.0.1); TLS at an external proxy that sends `X-Forwarded-Proto` (nginx passes it through, else `$scheme`); `/api/health` exempt from the HTTPS redirect; HSTS opt-in | Every entry point defaults to `config.settings.dev` (DEBUG on unless `DJANGO_DEBUG=false`), which would also enable `login_link`; dev secrets must not reach production |
+| Dockerfile sets `PIP_RESUME_RETRIES=30`, `PIP_DEFAULT_TIMEOUT=60` | On a flaky connection the 196 MB CPU torch wheel failed after pip's default 5 resumes |
 | Chat limit (`RATE_LIMIT_CHAT_QUESTIONS`, 30/hour) shares `apps/repos/quota.UserQuota` (per-user, per-scope sliding window in the cache) with the analysis limit; a question counts only after auth/ownership/input/repo-ready/model-online checks pass, right before the answer starts; creating a conversation only *checks* the quota (no empty conversation when the first question would be refused); 429 `rate_limited` + `retry_after_seconds`; `GET /api/usage` → `rate_limit.chat_questions`, shown on Settings | One Kaggle model serves everyone and each answer holds it for up to a minute; rejected requests must not burn quota |
 
 ## Completed
@@ -183,7 +186,7 @@ Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, sm
 Waiting on the developer:
 1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
 2. **Kaggle run**: follow `kaggle/README.md`; put `LLM_API_KEY` in `.env` (create it; one line is enough), `docker compose up -d`, then `set_llm_url <tunnel URL>`. That also switches the stack away from Ollama. Then re-run the smoke tests (re-analyse a repo, ask a chat question) on Qwen3-8B.
-Later candidates: chat answers in dedicated workers if load grows; production deployment notes (HTTPS, `AUTH_COOKIE_SECURE`, `TOKEN_ENCRYPTION_KEYS`, nginx buffering off for SSE).
+Later candidates: chat answers in dedicated workers if load grows; a CI job that builds the production images.
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
@@ -204,6 +207,7 @@ Later candidates: chat answers in dedicated workers if load grows; production de
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: Production deployment: `config.settings.prod` (forces DEBUG off, refuses dev secrets, HTTPS-only cookies + redirect, proxy SSL header, quiet DisallowedHost), `docker-compose.prod.yml`, `.env.production.example`, nginx forwarded-proto + asset caching, `docs/deployment.md`. Prod stack run locally: SPA/asset caching, health exempt from redirect, HTTP→HTTPS redirect, unknown host 400 without log noise, admin not routed, `login_link` refused, SSE through nginx delivered live (each event <0.1 s), deploy check down to the opt-in HSTS warning.
 - 2026-10-03: Celery worker/beat dev auto-reload actually wired up (`CELERY_RELOAD` → watchfiles in `entrypoint.sh`); verified live on a task-file edit.
 - 2026-10-03: Creating a conversation checks the chat quota first (no empty conversations left by a refused first question).
 - 2026-10-03: Per-user chat question limit (30/hour default) with usage reporting and Settings display; verified live on Qwen3-8B.
