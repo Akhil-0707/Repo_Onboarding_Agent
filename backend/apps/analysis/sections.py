@@ -19,6 +19,7 @@ from apps.agents.citations import (
     repair_tour,
 )
 from apps.agents.digest import dependency_summary, internal_edges
+from apps.agents.flowtrace import ensure_flow_trace
 from apps.agents.mermaid import render_mermaid
 from apps.agents.structured import OutputRejectedError
 from apps.agents.tools import ToolContext
@@ -92,6 +93,8 @@ class SectionSpec:
     repair: Callable[[dict[str, Any], FileIndex], RefReport]
     params: Callable[[ToolContext], dict[str, Any]] = field(default=lambda ctx: {})
     check: Callable[[dict[str, Any]], None] | None = None
+    ensure: Callable[..., bool] | None = None
+    """Optional follow-up model call after repair (``data, llm, **structured_kwargs``)."""
     tools: list[str] | None = None
     max_tokens: int = 3000
 
@@ -121,6 +124,7 @@ SECTIONS: list[SectionSpec] = [
         repair_tour,
         params=_tour_params,
         check=_check_tour,
+        ensure=ensure_flow_trace,
         max_tokens=4500,
     ),
     SectionSpec("glossary", "Glossary", schemas.Glossary, repair_glossary, max_tokens=3500),

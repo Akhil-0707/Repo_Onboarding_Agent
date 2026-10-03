@@ -9,8 +9,9 @@ import pytest
 
 from apps.agents.citations import FileIndex, module_of, repair_architecture, repair_tour
 from apps.agents.digest import dependency_summary
+from apps.agents.flowtrace import ensure_flow_trace
 from apps.agents.mermaid import node_id, render_mermaid, sanitize_label
-from apps.agents.schemas import FLOW_TRACE_REQUIRED, Architecture, Tour
+from apps.agents.schemas import Architecture, Tour
 from apps.agents.structured import (
     OutputRejectedError,
     StructuredOutputError,
@@ -175,23 +176,37 @@ def tour(*steps: dict[str, Any]) -> dict[str, Any]:
     return {"intro": "A tour through placing an order.", "steps": list(steps)}
 
 
-def test_tour_schema_requires_a_flow_trace() -> None:
-    with pytest.raises(ValueError, match="flow_trace"):
-        Tour.model_validate(tour(step(), step(), step()))
+def test_tour_kinds_are_coerced() -> None:
     assert Tour.model_validate(tour(step(), step("flow-trace"), step())).steps[1].kind == (
         "flow_trace"
     )
 
 
-def test_missing_flow_trace_is_repaired_by_reprompting() -> None:
-    llm = ScriptedLLM(
-        reply(json.dumps(tour(step(), step(), step()))),
-        reply(json.dumps(tour(step("entry_point"), step("flow_trace"), step("flow_trace")))),
-    )
-    result = generate_structured(llm, [{"role": "user", "content": "Section: tour"}], Tour)
-    assert [s.kind for s in result.steps] == ["entry_point", "flow_trace", "flow_trace"]
-    feedback = llm.requests[1]["messages"][-1]["content"]
-    assert FLOW_TRACE_REQUIRED in feedback
+def labelled(data: dict[str, Any]) -> list[str]:
+    return [s["kind"] for s in data["steps"]]
+
+
+def test_missing_flow_trace_is_picked_by_the_model() -> None:
+    data = tour(step("entry_point"), step(), step(), step("testing"))
+    llm = ScriptedLLM(reply('{"steps": [9, 2]}'), reply('{"steps": [3, 2]}'))
+    assert ensure_flow_trace(data, llm) is True
+    assert labelled(data) == ["entry_point", "flow_trace", "flow_trace", "testing"]
+    prompt = llm.requests[0]["messages"][-1]["content"]
+    assert "1. A step - main.py" in prompt and "ONE real request" in prompt
+    assert "Stops [9] do not exist; use numbers 1-4." in llm.requests[1]["messages"][-1]["content"]
+
+
+def test_existing_flow_trace_needs_no_extra_call() -> None:
+    data = tour(step(), step("flow_trace"), step())
+    assert ensure_flow_trace(data, ScriptedLLM()) is False  # no responses queued: no call made
+
+
+def test_unusable_pick_rejects_the_tour_for_a_full_retry() -> None:
+    data = tour(step(), step(), step())
+    llm = ScriptedLLM(reply("I think stops two and three."), reply("Still prose."))
+    with pytest.raises(OutputRejectedError, match="flow_trace"):
+        ensure_flow_trace(data, llm)
+    assert labelled(data) == ["core_logic"] * 3
 
 
 def test_rejected_output_is_sent_back_to_the_model() -> None:

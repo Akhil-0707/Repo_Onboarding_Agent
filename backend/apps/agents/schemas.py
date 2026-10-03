@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Model(BaseModel):
@@ -153,11 +153,18 @@ FLOW_TRACE_REQUIRED = (
 
 
 class Tour(_Model):
+    """A flow trace is required, but enforced after reference repair (``ensure_flow_trace``):
+    small models write good tours yet often forget the label, and rewriting the whole tour
+    to fix one label is the hardest possible repair for them."""
+
     intro: str = Field(..., min_length=20, max_length=800)
     steps: list[TourStep] = Field(..., min_length=3, max_length=14, description="Reading order")
 
-    @model_validator(mode="after")
-    def _needs_flow_trace(self) -> Tour:
-        if not any(step.kind == "flow_trace" for step in self.steps):
-            raise ValueError(FLOW_TRACE_REQUIRED)
-        return self
+
+class FlowTracePick(_Model):
+    steps: list[int] = Field(
+        ...,
+        min_length=2,
+        max_length=6,
+        description="Numbers of the consecutive stops that follow one request or command",
+    )

@@ -219,6 +219,11 @@ class AnalysisRunner:
             # Verify references now so unusable output is sent back to the model for a fix.
             data = output.model_dump(mode="json")
             report = spec.repair(data, index)
+            if spec.ensure:
+                spec.ensure(
+                    data, self.llm, budget=self.budget, usage=self.usage,
+                    agent_logger=self.agent_logger,
+                )  # fmt: skip
             if spec.check:
                 spec.check(data)
             result.update(data=data, report=report)
