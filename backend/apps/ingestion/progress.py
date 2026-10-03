@@ -95,7 +95,7 @@ class JobReporter:
             {"_id": self._oid},
             {
                 "$set": {f"steps.$[s].{k}": v for k, v in fields.items()}
-                | {"progress": self._overall()}
+                | {"progress": self._overall(), "heartbeat_at": now()}
             },
             array_filters=[{"s.key": key}],
         )
@@ -104,7 +104,15 @@ class JobReporter:
     # -- API ----------------------------------------------------------------------------------
     def job_started(self) -> None:
         self._jobs().update_one(
-            {"_id": self._oid}, {"$set": {"status": "running", "started_at": now(), "error": ""}}
+            {"_id": self._oid},
+            {
+                "$set": {
+                    "status": "running",
+                    "started_at": now(),
+                    "error": "",
+                    "heartbeat_at": now(),
+                }
+            },
         )
         self._publish({"type": "job", "status": "running"})
 
@@ -112,7 +120,10 @@ class JobReporter:
         entry = {"ts": iso_now(), "level": level, "message": scrub(message)}
         self._jobs().update_one(
             {"_id": self._oid},
-            {"$push": {"steps.$[s].logs": {"$each": [entry], "$slice": -MAX_LOGS_PER_STEP}}},
+            {
+                "$push": {"steps.$[s].logs": {"$each": [entry], "$slice": -MAX_LOGS_PER_STEP}},
+                "$set": {"heartbeat_at": now()},
+            },
             array_filters=[{"s.key": key}],
         )
         self._publish({"type": "log", "key": key, **entry})
@@ -150,11 +161,15 @@ class JobReporter:
     def waiting(self, key: str, message: str) -> None:
         """The model server is offline: the job pauses here and resumes automatically."""
         self._set_step(key, {"status": "waiting", "message": message})
-        self._jobs().update_one({"_id": self._oid}, {"$set": {"status": "waiting_for_model"}})
+        self._jobs().update_one(
+            {"_id": self._oid}, {"$set": {"status": "waiting_for_model", "heartbeat_at": now()}}
+        )
         self._publish({"type": "job", "status": "waiting_for_model"})
 
     def resumed(self) -> None:
-        self._jobs().update_one({"_id": self._oid}, {"$set": {"status": "running"}})
+        self._jobs().update_one(
+            {"_id": self._oid}, {"$set": {"status": "running", "heartbeat_at": now()}}
+        )
         self._publish({"type": "job", "status": "running"})
 
     def finish(self, status: str, error: str = "") -> None:
@@ -165,6 +180,7 @@ class JobReporter:
                     "status": status,
                     "error": scrub(error),
                     "finished_at": now(),
+                    "heartbeat_at": now(),
                     **({"progress": 100} if status == "done" else {}),
                 }
             },

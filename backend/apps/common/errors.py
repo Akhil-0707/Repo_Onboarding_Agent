@@ -91,3 +91,25 @@ def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response |
 
     response.data = error_body(code, message, details)
     return response
+
+
+def _is_api(request: Any) -> bool:
+    return str(getattr(request, "path", "")).startswith("/api/")
+
+
+def not_found_view(request: Any, exception: Exception | None = None) -> Any:
+    """``handler404``: JSON envelope for API URLs, Django's page for everything else."""
+    if _is_api(request):
+        return error_response("not_found", "No such API endpoint.", 404)
+    from django.views.defaults import page_not_found
+
+    return page_not_found(request, exception)  # type: ignore[arg-type]
+
+
+def server_error_view(request: Any) -> Any:
+    """``handler500``: errors outside DRF views (e.g. plain Django/SSE views) keep the envelope."""
+    if _is_api(request):
+        return error_response("server_error", "An unexpected error occurred.", 500)
+    from django.views.defaults import server_error
+
+    return server_error(request)

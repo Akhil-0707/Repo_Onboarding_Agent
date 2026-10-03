@@ -55,3 +55,11 @@ def start_pipeline(job_id: str) -> AsyncResult:
         mark_repository_indexed.si(job_id),
         analyze_repository.si(job_id),
     ).apply_async()
+
+
+@shared_task(ignore_result=True)
+def sweep_stale_jobs() -> int:
+    """Celery beat: fail jobs whose worker died silently (see ``apps.ingestion.sweeper``)."""
+    from apps.ingestion.sweeper import sweep_stale_jobs as sweep
+
+    return sweep()

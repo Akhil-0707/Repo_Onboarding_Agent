@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from apps.common.errors import ApiError, NotFoundError
 from apps.ingestion import index_store
 from apps.repos.models import Repository, UserRepository
+from apps.repos.quota import consume_new_analysis
 from apps.repos.serializers import (
     AnalysisStartSerializer,
     CreateRepositorySerializer,
@@ -21,7 +22,13 @@ from apps.repos.serializers import (
     RepositorySerializer,
     TreeSerializer,
 )
-from apps.repos.services import get_user_repository, latest_job, start_analysis
+from apps.repos.services import (
+    AnalysisStart,
+    get_user_repository,
+    latest_job,
+    reanalyze,
+    start_analysis,
+)
 
 
 class NotIndexedYet(ApiError):
@@ -47,18 +54,39 @@ class RepositoryListCreateView(ListAPIView):
     def post(self, request: Request) -> Response:
         payload = CreateRepositorySerializer(data=request.data)
         payload.is_valid(raise_exception=True)
-        result = start_analysis(request.user, payload.validated_data["url"])
-        body = AnalysisStartSerializer(
-            {
-                "repository": result.repository,
-                "job": result.job,
-                "created": result.created,
-                "cached": result.cached,
-            }
-        ).data
-        return Response(
-            body, status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+        result = start_analysis(
+            request.user,
+            payload.validated_data["url"],
+            on_new_work=lambda: consume_new_analysis(request),
         )
+        return start_response(result)
+
+
+def start_response(result: AnalysisStart) -> Response:
+    body = AnalysisStartSerializer(
+        {
+            "repository": result.repository,
+            "job": result.job,
+            "created": result.created,
+            "cached": result.cached,
+        }
+    ).data
+    return Response(body, status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK)
+
+
+class ReanalyzeView(APIView):
+    @extend_schema(
+        request=None, responses={200: AnalysisStartSerializer, 201: AnalysisStartSerializer}
+    )
+    def post(self, request: Request, repo_id: str) -> Response:
+        """Analyse the latest commit, or retry the AI sections that did not finish.
+
+        201 when work was started; 200 with ``cached: true`` when everything is up to date."""
+        repository = get_user_repository(request.user, repo_id)
+        result = reanalyze(
+            request.user, repository, on_new_work=lambda: consume_new_analysis(request)
+        )
+        return start_response(result)
 
 
 class RepositoryDetailView(APIView):

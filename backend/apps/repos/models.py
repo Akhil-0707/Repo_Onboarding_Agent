@@ -67,6 +67,8 @@ class UserRepository(models.Model):
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     last_opened_at = models.DateTimeField(null=True, blank=True)
+    access_checked_at = models.DateTimeField(null=True, blank=True)
+    """When GitHub last confirmed this user can read the (private) repository."""
 
     class Meta:
         db_table = "user_repos"
@@ -87,6 +89,8 @@ class IngestionJob(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    """Last progress write; the stale-job sweeper fails running jobs that stop updating."""
 
     class Meta:
         db_table = "ingestion_jobs"

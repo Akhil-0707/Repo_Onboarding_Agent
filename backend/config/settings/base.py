@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.agents",
     "apps.analysis",
     "apps.chat",
+    "apps.usage",
 ]
 
 MIDDLEWARE = [
@@ -148,6 +149,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.analysis.tasks.resume_waiting_analyses",
         "schedule": env_float("ANALYSIS_RESUME_SECONDS", 60.0),
     },
+    "sweep-stale-jobs": {
+        "task": "apps.ingestion.tasks.sweep_stale_jobs",
+        "schedule": env_float("INGEST_SWEEP_SECONDS", 300.0),
+    },
 }
 
 # --- Internationalisation / static -------------------------------------------------------
@@ -221,6 +226,12 @@ INGEST_MAX_FILES = env_int("INGEST_MAX_FILES", 5000)
 INGEST_MAX_FILE_KB = env_int("INGEST_MAX_FILE_KB", 500)
 INGEST_CLONE_TIMEOUT = env_int("INGEST_CLONE_TIMEOUT", 300)
 INGEST_WORKDIR = env("INGEST_WORKDIR", "")  # empty: system temp dir
+INGEST_STALE_MINUTES = env_int("INGEST_STALE_MINUTES", 30)  # running job with no progress
+INGEST_QUEUED_TIMEOUT_MINUTES = env_int("INGEST_QUEUED_TIMEOUT_MINUTES", 360)
+# Private repositories: re-confirm the user's GitHub access this often; if GitHub is down,
+# serve cached results for up to the grace period after the last confirmation.
+PRIVATE_ACCESS_RECHECK_HOURS = env_int("PRIVATE_ACCESS_RECHECK_HOURS", 6)
+PRIVATE_ACCESS_GRACE_HOURS = env_int("PRIVATE_ACCESS_GRACE_HOURS", 168)
 GITHUB_API_URL = env("GITHUB_API_URL", "https://api.github.com")
 
 # --- Embeddings & search -----------------------------------------------------------------

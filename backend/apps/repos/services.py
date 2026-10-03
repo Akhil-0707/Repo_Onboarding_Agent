@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import IntegrityError
+from django.utils import timezone
+from rest_framework import status
 
 from apps.accounts.crypto import TokenDecryptionError
 from apps.accounts.models import User
@@ -32,6 +36,21 @@ class RepoTooLarge(ApiError):
 class GitHubUnavailable(ApiError):
     status_code = 502
     default_code = "github_error"
+
+
+class AnalysisInProgress(ApiError):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "analysis_in_progress"
+    default_detail = "This repository is already being analysed."
+
+
+OnNewWork = Callable[[], None]
+"""Called right before work is enqueued (consumes the user's rate limit); may raise."""
+ACTIVE_JOB_STATUSES = (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.WAITING_FOR_MODEL)
+
+
+def _no_limit() -> None:
+    return None
 
 
 @dataclass(frozen=True)
@@ -68,7 +87,10 @@ def latest_job(repository: Repository) -> IngestionJob | None:
 
 
 def _link(user: User, repository: Repository) -> None:
-    UserRepository.objects.get_or_create(user=user, repository=repository)
+    """Called after the user's own token resolved the repo, i.e. access was just verified."""
+    link, _ = UserRepository.objects.get_or_create(user=user, repository=repository)
+    if repository.private:
+        UserRepository.objects.filter(pk=link.pk).update(access_checked_at=timezone.now())
 
 
 def _enqueue(repository: Repository, user: User) -> IngestionJob:
@@ -84,8 +106,41 @@ def _enqueue(repository: Repository, user: User) -> IngestionJob:
     return job
 
 
-def start_analysis(user: User, url: str) -> AnalysisStart:
-    info = resolve_repo(user, url)
+def _enqueue_analysis_only(repository: Repository, user: User) -> IngestionJob:
+    """Same commit, code index intact: re-run only the AI sections that are not done."""
+    from apps.analysis.models import Analysis, AnalysisStatus
+    from apps.analysis.tasks import analyze_repository
+
+    analysis = Analysis.objects.filter(repository=repository).first()
+    if analysis is not None:
+        sections = {
+            key: state if state.get("status") == "done" else {**state, "status": "pending"}
+            for key, state in (analysis.sections or {}).items()
+        }
+        Analysis.objects.filter(pk=analysis.pk).update(
+            status=AnalysisStatus.PENDING, error="", sections=sections, finished_at=None
+        )
+    steps = initial_steps()
+    for step in steps:
+        if step["key"] != "analyze":
+            step.update(status="done", progress=100)
+    job = IngestionJob.objects.create(
+        repository=repository,
+        user=user,
+        status=JobStatus.RUNNING,
+        steps=steps,
+        started_at=timezone.now(),
+    )
+    result = analyze_repository.delay(str(job.pk))
+    IngestionJob.objects.filter(pk=job.pk).update(celery_task_id=result.id or "")
+    return job
+
+
+def start_analysis(user: User, url: str, on_new_work: OnNewWork = _no_limit) -> AnalysisStart:
+    return _start_from_info(user, resolve_repo(user, url), on_new_work)
+
+
+def _start_from_info(user: User, info: RepoInfo, on_new_work: OnNewWork) -> AnalysisStart:
     max_kb = settings.INGEST_MAX_REPO_MB * 1024
     if info.size_kb > max_kb:
         raise RepoTooLarge(
@@ -98,6 +153,7 @@ def start_analysis(user: User, url: str) -> AnalysisStart:
         # The user's token just resolved this repo, so access to private repos is verified.
         _link(user, existing)
         if existing.status == RepoStatus.FAILED:
+            on_new_work()
             return AnalysisStart(existing, _enqueue(existing, user), created=True, cached=False)
         logger.info("analysis_cache_hit", repo=existing.full_name, sha=info.head_sha[:7])
         return AnalysisStart(
@@ -107,6 +163,7 @@ def start_analysis(user: User, url: str) -> AnalysisStart:
             cached=existing.status == RepoStatus.READY,
         )
 
+    on_new_work()
     try:
         repository = Repository.objects.create(
             url=f"https://github.com/{info.owner}/{info.name}",
@@ -143,4 +200,67 @@ def get_user_repository(user: User, repo_id: str) -> Repository:
     )
     if link is None:
         raise NotFoundError("Repository not found.")
+    if link.repository.private:
+        _ensure_private_access(user, link)
     return link.repository
+
+
+def _ensure_private_access(user: User, link: UserRepository) -> None:
+    """Cached private analyses are only served while GitHub confirms the user can read the
+    repository (re-checked every ``PRIVATE_ACCESS_RECHECK_HOURS``)."""
+    now = timezone.now()
+    checked = link.access_checked_at
+    if checked and now - checked < timedelta(hours=settings.PRIVATE_ACCESS_RECHECK_HOURS):
+        return
+    repository = link.repository
+    ref = parse_repo_url(repository.url)
+    try:
+        if ref is None:
+            raise RepositoryNotFoundError("Unrecognised repository URL.")
+        get_code_host().resolve(ref, _user_token(user))
+    except RepositoryNotFoundError as exc:
+        link.delete()  # access revoked: the cached analysis is no longer visible to this user
+        logger.info("private_access_revoked", repo=repository.full_name)
+        raise NotFoundError("Repository not found.") from exc
+    except IngestionError as exc:
+        grace = timedelta(hours=settings.PRIVATE_ACCESS_GRACE_HOURS)
+        if checked and now - checked < grace:
+            return  # GitHub is down; a recent confirmation is good enough for now
+        raise GitHubUnavailable(
+            "Could not confirm your access to this private repository with GitHub. "
+            "Try again in a moment."
+        ) from exc
+    UserRepository.objects.filter(pk=link.pk).update(access_checked_at=now)
+
+
+def reanalyze(
+    user: User, repository: Repository, on_new_work: OnNewWork = _no_limit
+) -> AnalysisStart:
+    """Analyse the latest commit, or retry unfinished AI sections when nothing changed.
+
+    Snapshots are a shared cache, so a finished analysis of the same commit is never redone."""
+    from apps.analysis.models import Analysis
+    from apps.analysis.sections import SECTION_KEYS
+
+    job = latest_job(repository)
+    if job is not None and job.status in ACTIVE_JOB_STATUSES:
+        raise AnalysisInProgress()
+    info = resolve_repo(user, repository.url)
+    if info.head_sha != repository.commit_sha:
+        result = _start_from_info(user, info, on_new_work)
+        if result.repository.pk != repository.pk:
+            # The new snapshot replaces the old one on this user's dashboard.
+            UserRepository.objects.filter(user=user, repository=repository).delete()
+        return result
+    if repository.status == RepoStatus.FAILED:
+        on_new_work()
+        return AnalysisStart(repository, _enqueue(repository, user), created=True, cached=False)
+    if repository.status != RepoStatus.READY:
+        raise AnalysisInProgress()
+    analysis = Analysis.objects.filter(repository=repository).first()
+    if analysis is not None and all(analysis.section_status(k) == "done" for k in SECTION_KEYS):
+        return AnalysisStart(repository, job, created=False, cached=True)  # already up to date
+    on_new_work()
+    return AnalysisStart(
+        repository, _enqueue_analysis_only(repository, user), created=True, cached=False
+    )

@@ -11,4 +11,8 @@ urlpatterns = [
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.repos.urls")),
     path("api/", include("apps.chat.urls")),
+    path("api/", include("apps.usage.urls")),
 ]
+
+handler404 = "apps.common.errors.not_found_view"
+handler500 = "apps.common.errors.server_error_view"
