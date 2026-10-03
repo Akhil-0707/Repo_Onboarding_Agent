@@ -105,3 +105,37 @@ def test_login_link_is_single_use_and_debug_only(settings: Any) -> None:
     settings.DEBUG = False
     with pytest.raises(CommandError, match="DEBUG"):
         call_command("login_link", "dev", stdout=StringIO())
+
+
+def test_export_snapshot_records_real_responses(
+    host: FakeCodeHost, settings: Any, tmp_path: Path
+) -> None:
+    import json
+
+    from apps.chat.models import Message, Thread
+
+    settings.DEBUG = True
+    ada = User.objects.create(username="ada", github_id=12)
+    seed("--repo", "acme/py_app", "--add-to", "ada")
+    repo = Repository.objects.get(name="py_app")
+    thread = Thread.objects.create(user=ada, repository=repo, title="Q")
+    Message.objects.create(thread=thread, role="user", content="Where?")
+    Message.objects.create(
+        thread=thread, role="assistant", content="Here [app/routes.py:1-3].",
+        citations=[{"path": "app/routes.py", "start_line": 1, "end_line": 3}],
+    )  # fmt: skip
+
+    out = tmp_path / "snapshot.json"
+    call_command("export_snapshot", "ada", "acme/py_app", "--out", str(out), stdout=StringIO())
+    data = json.loads(out.read_text(encoding="utf-8"))
+    base = f"/api/repos/{repo.pk}"
+    assert data["repo_id"] == str(repo.pk)
+    assert {"/api/repos", base, f"{base}/analysis", f"{base}/tree", "/api/usage"} <= set(
+        data["responses"]
+    )
+    assert data["responses"][f"{base}/threads/{thread.pk}"]["messages"][1]["content"]
+    assert f"{base}/files?path=app%2Froutes.py" in data["responses"]  # cited by the chat
+    assert f"{base}/files?path=app%2Fmain.py" in data["responses"]  # cited by the analysis
+
+    with pytest.raises(CommandError, match="not on @ada"):
+        call_command("export_snapshot", "ada", "acme/other", "--out", str(out))
