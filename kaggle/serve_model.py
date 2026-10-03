@@ -13,6 +13,8 @@
 # --- Configuration -----------------------------------------------------------------------
 import os
 
+# Printed by the install cell: tells which revision of this notebook actually ran.
+NOTEBOOK_VERSION = "2026-10-03.3"
 MODEL = os.environ.get("MODEL", "Qwen/Qwen3-8B")
 # vLLM release to install. If it fails on T4 (compute capability 7.5), try "0.18.1", which the
 # community has validated on Kaggle's dual T4 setup.
@@ -43,6 +45,7 @@ TUNNEL_LOG = (
 #   if PyTorch cannot run on the GPUs.
 import json
 import re
+import shutil
 import subprocess
 import sys
 
@@ -86,12 +89,53 @@ def torch_runs_on_gpu() -> tuple[bool, str]:
     )
 
 
+def run_python(code: str) -> subprocess.CompletedProcess[str]:
+    """Fresh interpreter: this kernel may still hold the packages it imported earlier."""
+    return subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+
+
+def remove_torchaudio() -> None:
+    # Kaggle images can hold more than one copy (several site-packages directories).
+    for _ in range(5):
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "-y", "torchaudio"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if "not installed" in result.stdout + result.stderr:
+            break
+    # A copy pip does not manage (no install record) is deleted directly.
+    where = run_python(
+        "import importlib.util as u\n"
+        "s = u.find_spec('torchaudio')\n"
+        "print(s.submodule_search_locations[0] if s and s.submodule_search_locations else '')"
+    ).stdout.strip()
+    if where:
+        shutil.rmtree(where, ignore_errors=True)
+        print(f"Removed a torchaudio copy pip could not uninstall: {where}")
+    left = run_python("import importlib.util as u; print(u.find_spec('torchaudio'))")
+    print(
+        f"torchaudio after cleanup: {left.stdout.strip() or left.stderr.strip()[-200:]}"
+    )
+
+
+def vllm_imports() -> tuple[bool, str]:
+    """The same imports `vllm serve` does first (they pull in transformers)."""
+    result = run_python("import vllm.engine.arg_utils")
+    lines = result.stderr.strip().splitlines()
+    return result.returncode == 0, lines[-1] if lines else ""
+
+
 def install_vllm(version: str) -> tuple[bool, str]:
     pip("install", "-q", f"vllm=={version}")
-    pip("uninstall", "-y", "-q", "torchaudio")
+    remove_torchaudio()
     return torch_runs_on_gpu()
 
 
+print(f"Notebook version {NOTEBOOK_VERSION}")
 print(f"GPU driver supports CUDA {driver_cuda_version()}")
 ok, detail = install_vllm(VLLM_VERSION)
 print(f"vLLM {VLLM_VERSION}: {detail}")
@@ -106,7 +150,13 @@ if not ok:
     raise RuntimeError(
         f"PyTorch cannot use the GPUs ({detail}). Check Session options -> Accelerator: GPU T4 x2."
     )
-print(f"Installed vLLM {VLLM_VERSION}")
+imports_ok, import_error = vllm_imports()
+if not imports_ok:
+    raise RuntimeError(
+        f"vLLM {VLLM_VERSION} is installed but cannot be imported: {import_error}\n"
+        "Paste this cell's output into the RepoGuide session to get it fixed."
+    )
+print(f"Installed vLLM {VLLM_VERSION}; it imports cleanly.")
 
 
 # %%
