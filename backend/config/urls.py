@@ -1,6 +1,8 @@
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from apps.common.errors import not_found_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -12,6 +14,8 @@ urlpatterns = [
     path("api/", include("apps.repos.urls")),
     path("api/", include("apps.chat.urls")),
     path("api/", include("apps.usage.urls")),
+    # Last: unknown API URLs get the JSON error envelope (also with DEBUG on).
+    re_path(r"^api/", not_found_view),
 ]
 
 handler404 = "apps.common.errors.not_found_view"
