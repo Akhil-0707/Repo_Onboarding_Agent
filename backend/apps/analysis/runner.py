@@ -27,6 +27,7 @@ from apps.common.logging import get_logger
 from apps.ingestion.pipeline import job_is_failed
 from apps.ingestion.progress import JobReporter
 from apps.llm.client import LLMClient, get_llm_client
+from apps.llm.cost import estimate_cost
 from apps.llm.errors import LLMRequestError, ModelOfflineError
 from apps.llm.health import check_llm_health
 from apps.repos.models import IngestionJob, JobStatus, Repository
@@ -70,10 +71,8 @@ class AnalysisRunner:
         for name, value in fields.items():
             setattr(self.analysis, name, value)
         self.analysis.usage = self.usage.as_dict()
-        self.analysis.est_cost = round(
-            self.usage.prompt_tokens / 1000 * settings.LLM_COST_PER_1K_INPUT
-            + self.usage.completion_tokens / 1000 * settings.LLM_COST_PER_1K_OUTPUT,
-            6,
+        self.analysis.est_cost = estimate_cost(
+            self.usage.prompt_tokens, self.usage.completion_tokens
         )
         self.analysis.save()
 
