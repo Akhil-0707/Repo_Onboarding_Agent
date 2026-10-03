@@ -3,18 +3,19 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 7 complete (Q&A chat, real-model + real-uvicorn checks done). **Next: Phase 8 (usage/cost, rate limits, cache rules, error polish).**
+- **Phase:** 8 complete (rate limits, re-analysis, usage, private access re-checks, stale-job sweeper, error envelope). **Next: Phase 9 (coverage, Playwright E2E, seed_demo, README).**
 - **Last commit:** see `git log -1`.
 - **Local stack model:** still pointed at **Ollama** `qwen3:4b-instruct` (`set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`), kept on purpose for local testing. Revert when no longer needed (delete the `llm.base_url`/`llm.model` rows in `runtime_settings` via admin, or `set_llm_url` with the Kaggle tunnel).
 
 ## ▶ Resume here (fresh session)
-1. Start Phase 8 per `plan.md` (notes under "Next steps (Phase 8)" below). First confirm CI for the last push is green (`gh run list --limit 1`).
+1. Start Phase 9 per `plan.md` (notes under "Next steps (Phase 9)" below). First confirm CI for the last push is green (`gh run list --limit 1`).
 2. To re-run the analysis on the local commander.js snapshot (only missing sections are generated):
    `docker compose exec backend python manage.py shell` → create an `IngestionJob` for the repo with `initial_steps()` (all steps except `analyze` marked done, status running) → `apps.analysis.tasks.analyze_repository.delay(str(job.pk))`.
 3. Running backend tests locally against the Docker Mongo needs credentials:
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
-4. Backend code edits auto-reload the Celery worker (watchfiles): don't edit backend files while a real analysis is running, or it restarts mid-run. If that happens, restart the worker and re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
-5. Browser checks of authenticated pages need a session for a local test user; the assistant's tooling may refuse to inject tokens into the browser. Log in yourself (GitHub OAuth) or set the `rg_refresh` cookie manually.
+4. If `.venv/Scripts/black` says "Permission denied" (OneDrive/AV lock on the .exe), run `.venv/Scripts/python -m black` instead.
+5. Backend code edits auto-reload the Celery worker (watchfiles): don't edit backend files while a real analysis is running, or it restarts mid-run. If that happens, restart the worker and re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
+6. Browser checks of authenticated pages need a session for a local test user; the assistant's tooling may refuse to inject tokens into the browser. Log in yourself (GitHub OAuth) or set the `rg_refresh` cookie manually.
 
 ## How to run
 
@@ -116,9 +117,16 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | History: last `CHAT_HISTORY_TURNS` turns verbatim + deterministic digest of older turns (no extra LLM call); failed answers excluded | Fits the 16k window without summarisation latency |
 | Chat stream view is `csrf_exempt` (Bearer header auth only, never cookies); chat tests use `enforce_csrf_checks=True` | Django's CSRF middleware 403'd real browser POSTs while the test client hid it |
 | Answer rendering: small safe Markdown subset (`AnswerText`), no HTML, no new dependency | Model output is untrusted |
+| New-analysis rate limit consumed **inside** the service, right before work is enqueued (`on_new_work` hook → `apps/repos/quota.py`, DRF `SimpleRateThrottle` history in the cache) | A DRF view throttle runs before we know whether the request is a cache hit; cache hits must stay free and throttled requests must not leave half-created repos |
+| Re-analyze: newer commit → new snapshot replaces the old one on *this user's* dashboard; same commit → only unfinished AI sections are retried (analysis-only job); fully done → 200 `cached` no-op; active job → 409 | Snapshots are a shared cache: a finished analysis is never redone for everyone |
+| Private repos: `UserRepository.access_checked_at`; `get_user_repository` re-confirms with GitHub every 6 h; 404 from GitHub unlinks the repo; GitHub outage → serve if confirmed within 7 days, else 502 | Spec: cached private analyses only while the user's token confirms access |
+| Usage: analysis usage attributed to users who *started work* on a snapshot; chat usage is personal; cost via `apps/llm/cost.py` (prices default 0 → "≈$0 (self-hosted)") | Cache hits are free, so they cost the opener nothing |
+| Stale-job sweeper (beat, 5 min): running jobs silent for 30 min (`heartbeat_at`, written on every progress update) or queued for 6 h are stopped; if the repo is already browsable only the unfinished AI sections fail (checkpoint kept for Re-analyze) | Worker SIGKILL/OOM no longer leaves jobs spinning forever |
+| Unknown `/api/` URLs → JSON envelope via a catch-all route (works with DEBUG on) plus `handler404/500` | Consistent errors everywhere |
 | Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
 
 ## Completed
+- **Phase 8:** per-user new-analysis rate limit (cache hits free; 429 `rate_limited` with `retry_after_seconds`), `POST /api/repos/{id}/reanalyze`, usage endpoints (`GET /api/usage` incl. rate-limit status and pricing, `GET /api/repos/{id}/usage`), private-repo access re-checks, stale-job sweeper with job heartbeats, JSON 404 catch-all; frontend Settings usage section (tokens, model time, cost, quota, per-repo table) and workspace Re-analyze action with outcome notices. Live checks: real usage on commander.js (58,729 analysis tokens / 17 calls), Re-analyze surfaced GitHub's unauthenticated rate limit as a clean 502, JSON 404 in dev. Tests: 238 backend, 88 frontend.
 - **Phase 7:** `apps/chat` (Thread/Message models, CRUD + messages API, streaming endpoint `POST /api/repos/{id}/threads/{tid}/messages/stream` with events start/tool_start/tool_end/token/retract/citation/done/error; 503 `model_offline` and 409 `repo_not_ready` before streaming), agent loop streaming mode, citation processing, history digest, embedding warm-up; frontend chat panel (threads select/new/delete, starter questions incl. from Overview, live research steps, streamed draft, cited answers with chips into the code viewer, Stop, offline banner). Real checks with Ollama qwen3:4b-instruct on commander.js: 4-tool answer with 2 validated citations in 53 s; honest "not found" after a real search; through uvicorn first token 7.3 s, disconnect mid-answer recorded as interrupted. Tests: 227 backend, 82 frontend.
 - **Phase 6:** Architecture (JSON graph → verified modules/edges → import-seeded edges → server Mermaid) and Guided Tour (8–12 stops, enforced flow trace, symbol-pinned ranges, kind-prefix cleanup) sections; output re-prompting via `accept`; streamed structured output; frontend Architecture tab (lazy strict Mermaid, clickable nodes highlight module cards, file chips), Tour tab and tour mode page (stepper, progress bar, ←/→, code + explanation); Mermaid contract test runs the real parser on the server's output format. Real run on commander.js with Ollama qwen3:4b-instruct: architecture 6 modules / 9 edges (3 of 6 model edges confirmed by imports, 3 import edges added), tour 9 stops; a 1.6k-token tour JSON took 128 s and only succeeded after switching to streaming; resume from the `structure` checkpoint verified for real. Tests: 202 backend, 74 frontend.
 - **Phase 5:** real-model smoke test with local Ollama `qwen3:4b-instruct` on commander.js: all 3 sections done in 339 s, 9 LLM calls, ~30k tokens, tool calls well-formed (5–6 per research turn), no repairs needed. Output quality findings fixed: the model writes `1-1` line ranges for whole files and invents round line numbers for glossary terms → reference repair now drops `1-1`, prefers the symbol index (exact case first), and drops ranges whose lines don't mention the term.
@@ -132,16 +140,14 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - The vLLM 0.30.0 + T4 combination is unverified (needs a Kaggle run). The documented fallback is 0.18.1.
 - Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
 
-## Next steps (Phase 8)
-1. Usage/cost per repo and per user (aggregate `Analysis.usage` + chat `Message.usage`; `GET /api/repos/{id}/usage`, `GET /api/usage`); Settings page usage view ("≈$0 (self-hosted)").
-2. Per-user rate limit: 5 new analyses/hour (DRF throttle, cache hits exempt); consider a chat questions/minute limit too.
-3. Private-repo cache rule: serve a cached private analysis only after the user's GitHub token confirms access.
-4. `POST /api/repos/{id}/reanalyze`; delete flows; consistent error envelope everywhere (audit plain Django views).
-5. Stale job sweeper (beat task failing jobs with no progress for N minutes).
-6. Tests.
+## Next steps (Phase 9)
+1. Fill coverage gaps (run `pytest --cov` and `vitest --coverage`; target the services/views with the least coverage).
+2. Playwright E2E main flow with a mocked backend (`npm run e2e` exists in package.json; add config, a route-mocked happy path: landing → dashboard → progress → workspace tabs → tour mode → chat).
+3. `manage.py seed_demo`: create a demo user + ingest a small public repo (optional server `GITHUB_API_TOKEN` fallback for the 60 req/h limit).
+4. README: architecture diagram, setup, env vars, design trade-offs, limitations, screenshot placeholders.
+5. Final CI green, push.
 
 ## Known follow-ups (later phases)
-- **Stale job sweeper (Phase 8):** a worker hard crash (SIGKILL/OOM) can leave a job `running`; add a beat task that fails jobs with no progress for N minutes.
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
 
 ## Gotchas
@@ -160,6 +166,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).
 - 2026-10-01: **Phase 1 complete.**
+- 2026-10-03: **Phase 8 complete**: limits, re-analysis, usage, private access re-checks, sweeper, JSON 404s.
 - 2026-10-02: **Phase 7 complete**: Q&A chat; real runs found two bugs fixed here (answers without searching; CSRF 403 on the stream POST).
 - 2026-10-01: **Phase 6 complete**: architecture map + guided tour + tour mode; real-model run surfaced the 120 s read-timeout trap for long JSON (fixed by streaming).
 - 2026-10-01: **Phase 5 complete**: real smoke test with Ollama qwen3:4b-instruct passed after restarting the worker (stale task registry); reference repair tightened from what the real output showed.

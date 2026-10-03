@@ -81,12 +81,14 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Embedding warm-up in the API process
 - [x] Push + CI
 
-## Phase 8 — Cost tracking, rate limits, caching, error polish
-- [ ] Usage/cost per repo and per user; Settings page
-- [ ] Per-user rate limit (5 new analyses/hour; cache hits exempt)
-- [ ] Private-repo cache access rule
-- [ ] Re-analyze, delete; consistent errors everywhere
-- [ ] Tests
+## Phase 8 — Cost tracking, rate limits, caching, error polish — ✅ Completed (2026-10-03)
+- [x] Usage/cost per repo and per user; Settings page
+- [x] Per-user rate limit (5 new analyses/hour; cache hits exempt)
+- [x] Private-repo cache access rule (periodic GitHub re-check, revoke on 404)
+- [x] Re-analyze, delete; consistent errors everywhere (JSON 404 catch-all)
+- [x] Stale job sweeper (heartbeats + beat task)
+- [x] Tests (238 backend, 88 frontend)
+- [x] Push + CI
 
 ## Phase 9 — Coverage, E2E, README, demo seed
 - [ ] Fill test coverage gaps
