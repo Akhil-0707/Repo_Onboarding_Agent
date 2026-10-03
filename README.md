@@ -19,16 +19,29 @@ checkpoint and resume on their own, and the code stays browsable in the meantime
 
 ## Screenshots
 
-> Placeholders. Add PNGs under `docs/screenshots/` and replace these lines.
+Real output for [`tj/commander.js`](https://github.com/tj/commander.js), produced by a small
+local model (`qwen3:4b-instruct`); every file and line reference was checked against the code.
+Regenerate them with `npm run screenshots` (see [`frontend/e2e/screenshots.spec.ts`](frontend/e2e/screenshots.spec.ts)).
 
-| View | File |
-|---|---|
-| Dashboard with analyzed repositories | `docs/screenshots/dashboard.png` |
-| Live ingestion progress | `docs/screenshots/progress.png` |
-| Workspace: Overview + code viewer | `docs/screenshots/workspace.png` |
-| Architecture map | `docs/screenshots/architecture.png` |
-| Tour mode | `docs/screenshots/tour.png` |
-| Chat with cited answer | `docs/screenshots/chat.png` |
+**Workspace: overview, file tree and the AI-written summary**
+![Workspace overview](docs/screenshots/workspace.png)
+
+**Architecture map: model-described relationships (solid) and imports found in the code (dashed)**
+![Architecture map](docs/screenshots/architecture.png)
+
+**Chat: a streamed answer whose citations open the exact lines**
+![Chat with cited answer](docs/screenshots/chat.png)
+
+**Tour mode: a flow-trace stop, with ←/→ navigation**
+![Tour mode](docs/screenshots/tour.png)
+
+<details>
+<summary>Dashboard and live ingestion progress</summary>
+
+![Dashboard](docs/screenshots/dashboard.png)
+![Live ingestion progress](docs/screenshots/progress.png)
+
+</details>
 
 ## Architecture
 
