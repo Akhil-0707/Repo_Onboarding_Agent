@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAnalysis } from "../api/analysis";
 import { useRepository, useTree } from "../api/repos";
+import { useReanalyze } from "../api/usage";
 import type { Repository } from "../api/types";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { CodeViewer } from "../components/CodeViewer";
@@ -95,6 +96,9 @@ export function WorkspacePage() {
   const ready = repo.data?.status === "ready";
   const tree = useTree(repoId, ready);
   const analysis = useAnalysis(repoId, ready);
+  const reanalyze = useReanalyze(repoId);
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
   const [showTree, setShowTree] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   // A starter question clicked outside the chat: (re)mount the panel and ask it.
@@ -165,13 +169,67 @@ export function WorkspacePage() {
         )}
         <button
           type="button"
+          disabled={reanalyze.isPending}
+          onClick={() => {
+            setNotice(null);
+            reanalyze.mutate(undefined, {
+              onSuccess: (result) => {
+                if (result.repository.id !== repoId) {
+                  // A newer commit: open its snapshot (or its progress if work started).
+                  void navigate(
+                    result.created
+                      ? `/repos/${result.repository.id}/progress`
+                      : `/repos/${result.repository.id}`,
+                  );
+                } else if (result.created) {
+                  setNotice({
+                    error: false,
+                    text: "Re-running the AI sections that did not finish…",
+                  });
+                } else {
+                  setNotice({
+                    error: false,
+                    text: "Already up to date: this is the latest commit and every section is done.",
+                  });
+                }
+              },
+              onError: (error) => setNotice({ error: true, text: error.message }),
+            });
+          }}
+          className="ml-auto rounded-md px-3 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {reanalyze.isPending ? "Checking…" : "Re-analyze"}
+        </button>
+        <button
+          type="button"
           onClick={() => setChatOpen((value) => !value)}
           aria-pressed={chatOpen}
-          className="ml-auto rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
         >
           {chatOpen ? "Close chat" : "Ask a question"}
         </button>
       </div>
+
+      {notice && (
+        <div
+          role={notice.error ? "alert" : "status"}
+          className={`flex items-center gap-3 border-b px-4 py-2 text-sm ${
+            notice.error
+              ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+              : "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200"
+          }`}
+        >
+          <span className="flex-1">{notice.text}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss"
+            className="rounded px-1 hover:bg-black/5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {showTree && (

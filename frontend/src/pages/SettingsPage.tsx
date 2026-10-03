@@ -1,6 +1,7 @@
 import { githubLoginUrl } from "../api/auth";
 import { useLLMHealth } from "../api/health";
 import { ErrorState, LoadingState } from "../components/StateViews";
+import { UsageSummary } from "../components/UsageSummary";
 import { useAuth } from "../lib/auth";
 
 const card =
@@ -41,6 +42,13 @@ export function SettingsPage() {
             </dd>
           </dl>
         )}
+      </section>
+
+      <section className={card} aria-labelledby="usage-heading">
+        <h2 id="usage-heading" className="font-semibold">
+          Usage
+        </h2>
+        <UsageSummary />
       </section>
 
       <section className={card} aria-labelledby="model-heading">

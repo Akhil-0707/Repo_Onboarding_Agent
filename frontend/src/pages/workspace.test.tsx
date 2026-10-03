@@ -203,6 +203,78 @@ describe("WorkspacePage", () => {
   });
 });
 
+describe("Re-analyze", () => {
+  function withReanalyze(response: () => Response) {
+    const spy = mockBackend();
+    const backend = spy.getMockImplementation();
+    spy.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.endsWith("/reanalyze")) return response();
+      return backend!(input, init);
+    });
+    return spy;
+  }
+
+  function start(id: string, created: boolean, cached: boolean) {
+    return jsonResponse(
+      { repository: makeRepo({ id }), job: null, created, cached },
+      created ? 201 : 200,
+    );
+  }
+
+  it("says when everything is already up to date", async () => {
+    const spy = withReanalyze(() => start("repo1", false, true));
+    renderWorkspace();
+    await userEvent.click(await screen.findByRole("button", { name: "Re-analyze" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Already up to date");
+    const call = spy.mock.calls.find(([url]) => String(url).endsWith("/reanalyze"));
+    expect(call?.[1]?.method).toBe("POST");
+  });
+
+  it("re-runs unfinished sections in place", async () => {
+    withReanalyze(() => start("repo1", true, false));
+    const { router } = renderWorkspace();
+    await userEvent.click(await screen.findByRole("button", { name: "Re-analyze" }));
+    expect(await screen.findByText(/Re-running the AI sections/)).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/repos/repo1");
+  });
+
+  it("opens the progress page of a newer commit", async () => {
+    withReanalyze(() => start("repo2", true, false));
+    const { router } = renderWithProviders(<></>, {
+      path: "/repos/repo1",
+      routes: [
+        { path: "/repos/:repoId", element: <WorkspacePage /> },
+        { path: "/repos/:repoId/progress", element: <p>Progress page</p> },
+      ],
+      auth: true,
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Re-analyze" }));
+    expect(await screen.findByText("Progress page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/repos/repo2/progress");
+  });
+
+  it("shows rate-limit errors", async () => {
+    withReanalyze(() =>
+      jsonResponse(
+        {
+          error: {
+            code: "rate_limited",
+            message: "You can start 5 new analyses per hour. Try again in 12 minutes.",
+            details: { retry_after_seconds: 700 },
+          },
+        },
+        429,
+      ),
+    );
+    renderWorkspace();
+    await userEvent.click(await screen.findByRole("button", { name: "Re-analyze" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Try again in 12 minutes.");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
 describe("SectionShell", () => {
   it("shows failures with the error message", async () => {
     renderWithProviders(
