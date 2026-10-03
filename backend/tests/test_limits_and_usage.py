@@ -18,35 +18,14 @@ from apps.analysis.models import Analysis
 from apps.chat.models import Message, Thread
 from apps.common.events import InMemoryEventBus, set_event_bus
 from apps.ingestion import index_store, pipeline
-from apps.ingestion.errors import IngestionError, RepositoryNotFoundError
-from apps.ingestion.github import CodeHost, RepoInfo, RepoRef, set_code_host
+from apps.ingestion.github import set_code_host
 from apps.ingestion.progress import initial_steps
 from apps.ingestion.sweeper import sweep_stale_jobs
 from apps.repos.models import IngestionJob, Repository, UserRepository
 from tests.conftest_fixtures import FIXTURES
+from tests.fakes.github import FakeCodeHost
 
 pytestmark = [pytest.mark.mongo, pytest.mark.django_db]
-
-
-class FakeCodeHost(CodeHost):
-    def __init__(self) -> None:
-        self.sha = "a" * 40
-        self.private = False
-        self.denied: set[str | None] = set()  # tokens that may not see the repository
-        self.down = False
-        self.calls = 0
-
-    def resolve(self, ref: RepoRef, token: str | None) -> RepoInfo:
-        self.calls += 1
-        if self.down:
-            raise IngestionError("GitHub is unavailable.")
-        if token in self.denied:
-            raise RepositoryNotFoundError("Repository not found.")
-        return RepoInfo(
-            owner="acme", name=ref.name, description="", default_branch="main",
-            head_sha=self.sha, private=self.private, size_kb=50,
-            html_url=f"https://github.com/acme/{ref.name}",
-        )  # fmt: skip
 
 
 @pytest.fixture
