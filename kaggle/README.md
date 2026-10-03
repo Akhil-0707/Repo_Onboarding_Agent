@@ -73,6 +73,8 @@ built for this:
 
 | Symptom | Fix |
 |---|---|
+| `PyTorch and TorchAudio were compiled with different CUDA versions` | Kaggle's preinstalled torchaudio does not match the PyTorch vLLM installs. The install cell now removes torchaudio (not needed for text); re-import the latest notebook or re-run that cell. |
+| Install cell prints `PyTorch cannot use the GPUs … trying 0.18.1` | The vLLM release brought a PyTorch too new for Kaggle's GPU driver; the cell falls back to 0.18.1 automatically. |
 | `vLLM exited during startup` mentioning CUDA / kernels / compute capability | Set `VLLM_VERSION = "0.18.1"` in the config cell (community-validated on 2× T4) and re-run. |
 | NCCL or tensor-parallel errors | Set `TENSOR_PARALLEL = 1`, and use a 4-bit build such as `MODEL = "Qwen/Qwen3-8B-AWQ"` so it fits one T4. |
 | Out of memory | Lower `MAX_MODEL_LEN` (e.g. 8192) or `GPU_MEMORY_UTILIZATION` (e.g. 0.88). |
