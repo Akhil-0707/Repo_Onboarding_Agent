@@ -77,3 +77,31 @@ def test_seed_errors(host: FakeCodeHost) -> None:
         seed("--repo", "acme/missing")
     with pytest.raises(CommandError, match="GitHub repository URL"):
         seed("--repo", "not a url")
+
+
+def test_login_link_is_single_use_and_debug_only(settings: Any) -> None:
+    from rest_framework.test import APIClient
+
+    settings.DEBUG = True
+    out = StringIO()
+    call_command("login_link", "dev", "--next", "/repos/x", stdout=out)
+    url = out.getvalue().strip().splitlines()[-1]
+    assert url.startswith("http://testserver-frontend/auth/callback?code=")
+    assert "next=%2Frepos%2Fx" in url
+    code = url.split("code=")[1].split("&")[0]
+    assert not User.objects.get(username="dev").has_usable_password()
+
+    client = APIClient()
+    exchange = {"code": code}
+    first = client.post(
+        "/api/auth/exchange", exchange, format="json", HTTP_X_REPOGUIDE_CLIENT="web"
+    )
+    assert first.status_code == 200 and first.json()["user"]["username"] == "dev"
+    again = client.post(
+        "/api/auth/exchange", exchange, format="json", HTTP_X_REPOGUIDE_CLIENT="web"
+    )
+    assert again.status_code in {400, 401}
+
+    settings.DEBUG = False
+    with pytest.raises(CommandError, match="DEBUG"):
+        call_command("login_link", "dev", stdout=StringIO())
