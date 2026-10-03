@@ -145,6 +145,31 @@ class FileIndex:
         )
         return (int(match["start_line"]), int(match["end_line"])) if match else None
 
+    def focus_range(self, path: str, start: int, end: int, max_lines: int) -> tuple[int, int]:
+        """Narrow a long range to something a reader can take in: a class becomes its header and
+        constructor (or the lines before its first member), anything else its first lines."""
+        if end - start + 1 <= max_lines:
+            return start, end
+        symbols = self.symbols.get(path, [])
+        owner = next(
+            (s for s in symbols if (int(s["start_line"]), int(s["end_line"])) == (start, end)), None
+        )
+        if owner is not None:
+            members = sorted(
+                (s for s in symbols if s.get("parent") == owner["name"]
+                 and start < int(s["start_line"]) <= end),
+                key=lambda s: int(s["start_line"]),
+            )  # fmt: skip
+            ctor = next(
+                (s for s in members if s["name"] in ("constructor", "__init__", owner["name"])),
+                None,
+            )
+            if ctor is not None and int(ctor["end_line"]) - start + 1 <= max_lines:
+                return start, int(ctor["end_line"])
+            if members and int(members[0]["start_line"]) - start > 1:
+                return start, min(int(members[0]["start_line"]) - 1, start + max_lines - 1)
+        return start, start + max_lines - 1
+
     def find_symbol(self, name: str) -> tuple[str, int, int] | None:
         wanted = term_key(name)
         hits = [
@@ -252,16 +277,22 @@ def repair_glossary(data: dict[str, Any], index: FileIndex) -> RefReport:
         if key in seen:
             continue
         seen.add(key)
+        look_up = not term.get("path")
         if term.get("path"):
             if not _fix_file_ref(term, index, report):
                 term.update(path=None, start_line=None, end_line=None)
+            elif index.mentions(term["path"], 1, index.lines[term["path"]], term["term"]) is False:
+                # The cited file never mentions the term (real run: npm script names cited to
+                # `.prettierignore`): look it up instead of pointing somewhere unrelated.
+                term.update(path=None, start_line=None, end_line=None)
+                report.repaired += 1
+                look_up = True
             else:
                 _fix_definition_lines(term, index, report)
-        else:
-            found_anywhere = index.find_symbol(term["term"])
-            if found_anywhere:
-                term["path"], term["start_line"], term["end_line"] = found_anywhere
-                report.repaired += 1
+        found_anywhere = index.find_symbol(term["term"]) if look_up else None
+        if found_anywhere:
+            term["path"], term["start_line"], term["end_line"] = found_anywhere
+            report.repaired += 1
         terms.append(term)
     data["terms"] = terms
     return report
@@ -275,8 +306,9 @@ _KIND_PREFIX = re.compile(
 )
 
 
-def repair_tour(data: dict[str, Any], index: FileIndex) -> RefReport:
-    """Steps pointing at unknown files are dropped; symbols pin down the line range."""
+def repair_tour(data: dict[str, Any], index: FileIndex, max_lines: int = 80) -> RefReport:
+    """Steps pointing at unknown files are dropped; symbols pin down the line range, which is
+    then narrowed to ``max_lines`` (a stop on a 2,700-line class highlighted the whole file)."""
     report = RefReport()
     seen: set[tuple[str, int | None, int | None]] = set()
     kept = []
@@ -286,6 +318,12 @@ def repair_tour(data: dict[str, Any], index: FileIndex) -> RefReport:
         step["title"] = _KIND_PREFIX.sub("", step["title"]) or step["title"]
         if step.get("symbol"):
             _fix_definition_lines(step, index, report)
+        if step.get("start_line") and step.get("end_line"):
+            span = (step["start_line"], step["end_line"])
+            focused = index.focus_range(step["path"], *span, max_lines=max_lines)
+            if focused != span:
+                step["start_line"], step["end_line"] = focused
+                report.repaired += 1
         key = (step["path"], step.get("start_line"), step.get("end_line"))
         if key not in seen:
             seen.add(key)
@@ -346,6 +384,7 @@ def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int =
     report = RefReport()
     modules: list[dict[str, Any]] = []
     alias: dict[str, str] = {}
+    names: list[tuple[str, str]] = []  # (model's id or name, new id)
     for module in data.get("modules", []):
         paths: list[str] = []
         for raw in module.get("paths", []):
@@ -366,13 +405,18 @@ def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int =
         new_id, n = base, 2
         while any(m["id"] == new_id for m in modules):
             new_id, n = f"{base}_{n}", n + 1
-        for key in (module.get("id"), module.get("name")):
-            if key:
-                alias.setdefault(key.strip().lower(), new_id)
-                alias.setdefault(_slug(key), new_id)
+        names.extend((key, new_id) for key in (module.get("id"), module.get("name")) if key)
         modules.append({**module, "id": new_id, "paths": paths})
+    # A module whose files all belong to more specific modules (real run: "Core" = `lib/` next
+    # to one module per file in lib/) owns nothing; its edges would be pure invention.
+    owners = {module_of(path, modules) for path in index.lines}
+    modules = [m for m in modules if m["id"] in owners or m.get("kind") == "external"]
+    kept_ids = {m["id"] for m in modules}
+    for key, new_id in names:
+        if new_id in kept_ids:
+            alias.setdefault(key.strip().lower(), new_id)
+            alias.setdefault(_slug(key), new_id)
     _infer_kinds(modules, index)
-    data["modules"] = modules
 
     def resolve(ref: str) -> str | None:
         return alias.get(ref.strip().lower()) or alias.get(_slug(ref))
@@ -406,4 +450,6 @@ def repair_architecture(data: dict[str, Any], index: FileIndex, max_edges: int =
                  "imports": count}
             )  # fmt: skip
     data["edges"] = edges[:max_edges]
+    linked = {e["source"] for e in data["edges"]} | {e["target"] for e in data["edges"]}
+    data["modules"] = [m for m in modules if m.get("kind") != "external" or m["id"] in linked]
     return report

@@ -67,7 +67,8 @@ STRUCTURE = {
         "start_line/end_line only when a specific part of a large file matters."
     ),
     "glossary": (
-        "Write the Glossary: 8-25 project-specific terms (not generic programming terms). Each "
+        "Write the Glossary: 8-25 project-specific terms (not generic programming terms, and not "
+        "the names of package scripts such as 'test' or 'lint'). Each "
         "has a 'kind', a 1-2 sentence 'definition', and 'path' (+ lines if known) where it is "
         "defined; use null when it is not defined in one place."
     ),

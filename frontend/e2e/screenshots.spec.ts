@@ -152,6 +152,13 @@ test("chat", async ({ page }) => {
   await page.goto(`/repos/${snapshot.repo_id}`);
   await page.getByRole("button", { name: "Ask a question" }).click();
   const chat = page.getByRole("complementary", { name: "Chat" });
+  // The newest conversation may be an honest "not found"; show the newest one with citations.
+  const base = `/api/repos/${snapshot.repo_id}/threads`;
+  const threads = (snapshot.responses[base] as { results: { id: string }[] }).results;
+  const cited = threads.find((t) =>
+    JSON.stringify(snapshot.responses[`${base}/${t.id}`]).includes("lib/option.js"),
+  );
+  if (cited) await chat.getByLabel("Conversation", { exact: true }).selectOption(cited.id);
   const citation = chat.getByRole("button", { name: /lib\/option\.js/ }).first();
   await citation.click();
   await expect(page.locator("[data-highlighted]").first()).toBeVisible();

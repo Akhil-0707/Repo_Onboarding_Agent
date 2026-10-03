@@ -19,8 +19,9 @@ checkpoint and resume on their own, and the code stays browsable in the meantime
 
 ## Screenshots
 
-Real output for [`tj/commander.js`](https://github.com/tj/commander.js), produced by a small
-local model (`qwen3:4b-instruct`); every file and line reference was checked against the code.
+Real output for [`tj/commander.js`](https://github.com/tj/commander.js), produced by
+`Qwen/Qwen3-8B` on the Kaggle vLLM server; every file and line reference was checked against the
+code.
 Regenerate them with `npm run screenshots` (see [`frontend/e2e/screenshots.spec.ts`](frontend/e2e/screenshots.spec.ts)).
 
 **Workspace: overview, file tree and the AI-written summary**

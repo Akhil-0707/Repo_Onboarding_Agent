@@ -8,12 +8,16 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://healing-cookie-mart-skip.trycloudflare.com/v1` and dies when the notebook stops.
 - **`.env`** (gitignored) now exists and holds only `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`), created by the developer. Never print or commit it. All other settings use defaults.
 - **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
-- **In progress when this was written:** real-model checks on Qwen3-8B. Chat is done (results under Completed). **Not yet done:** a full analysis re-run on the 8B model (planned: commander.js, all 5 sections) to compare with the 4B output.
+- **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
+- **Kaggle session ended** at ~08:08 UTC on 2026-10-03 (`/api/llm/health` → unreachable). Start a new one before any model work.
+- **One open check:** the Glossary prompt now excludes package-script names (`test`, `check:lint`, …). Not yet verified on the real model: needs one Glossary re-run (see Resume here, step 3).
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
 2. **Model server:** on Kaggle, open the RepoGuide notebook (GPU T4 x2, Internet on, secret `VLLM_API_KEY` attached) → Run All → copy the `Public URL: …trycloudflare.com/v1` line → `docker compose exec backend python manage.py set_llm_url <url>`. It should print `Model 'Qwen/Qwen3-8B' is online`. A fresh tunnel can refuse connections for ~1 minute; just re-run `set_llm_url`. Without Kaggle, use local Ollama instead: start the Ollama app, then `set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`.
-3. **Next task:** re-run the full analysis of commander.js on Qwen3-8B and compare with the 4B output (notes below), e.g. in `manage.py shell`: delete `Analysis` for the repo, then `apps.repos.services._enqueue_analysis_only(repo, user)`; watch `docker compose logs -f worker`. Then optionally regenerate the README screenshots from the 8B output (`export_snapshot` + `npm run screenshots`, see `frontend/e2e/screenshots.spec.ts`).
+3. **Next task (needs the model):** re-run only the Glossary of commander.js on Qwen3-8B to verify the new prompt drops package-script names. In `docker compose exec backend python manage.py shell`: load `Analysis` for repo `6abe76b0edff12d59ede7efc`, set `sections["glossary"]["status"] = "pending"`, save, then `apps.repos.services._enqueue_analysis_only(repo, User.objects.get(username="e2e-check"))` (it only re-runs sections that are not done). Check the terms; if good, re-export the snapshot and `npm run screenshots` (no screenshot shows the glossary today, so this is optional).
+   - Re-running a whole analysis: delete the repo's `Analysis`, then `_enqueue_analysis_only(repo, user)`; watch `docker compose logs -f worker`.
+   - Repair changes can be re-applied to stored output without the model: `get_section(key).repair(data, load_file_index(ToolContext(repo)))`, then save `sections` (repairs are idempotent).
 4. To look at the app signed in: `docker compose exec backend python manage.py login_link e2e-check` → open the printed link within 60 s (user `e2e-check` has commander.js and itsdangerous on its dashboard).
 5. Running backend tests locally against the Docker Mongo needs credentials:
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
@@ -134,8 +138,24 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | `set_llm_url` without `--model` clears the model override; adopts the server's only model if the configured one is not served; explains 401/403 (API key) | Switching Ollama → vLLM used to keep `qwen3:4b-instruct` and fail |
 | Architecture repair ignores previously derived edges and re-derives them | Idempotent: re-applying repair to stored output used to turn dashed import edges into plain ones |
 | Embedding model warmed in the ASGI process at startup (`config/asgi.py`, `EMBEDDING_WARMUP=1` default) | First chat search no longer pays ~10 s |
+| Tour ranges narrowed to ≤80 lines (`FileIndex.focus_range`): a class becomes header + constructor, else the lines before its first member, else its first 80 lines | Real 8B run: symbol pinning made a stop on `Command` highlight lines 14–2709 |
+| Glossary terms whose cited file never mentions them lose the location (then symbol lookup) | Real 8B run: npm script names cited to `.prettierignore` |
+| Architecture drops modules that own no files (all claimed by more specific modules) and external modules with no edges | Real 8B run: a `lib/` umbrella next to one module per lib file, with "uses" edges backed by no imports |
+| Answer lists keep their numbering across blank lines (`<ol start>`) | 8B writes loose lists; every item rendered as "1." |
 
 ## Completed
+- **Qwen3-8B analysis vs 4B (2026-10-03, commander.js, all 5 sections done):**
+  | | qwen3:4b-instruct (Ollama) | Qwen3-8B (Kaggle vLLM) |
+  |---|---|---|
+  | LLM calls / tokens | 17 / 58.7k (51.1k prompt) | 30 / 122.6k (115.8k prompt) |
+  | Model time | 620 s | 680 s (wall 11 min 21 s, no interruptions) |
+  | Overview | 4 tech-stack items, 0 run commands, 1 entry point | 8 items, 4 real commands (`npm test`, `npm run check`, …), 2 entry points |
+  | Architecture | 6 modules / 9 edges | one module per lib file: 9 modules / 18 edges after repair, almost all import-backed (busier map) |
+  | Tour | 9 stops, 3 without a range | 10 stops, all with ranges, flow trace on `parse()` |
+  | Start Here | 15 files | 15 files (adds `eslint.config.js`, `CHANGELOG.md`) |
+  | Glossary | 17 terms | 14 terms: 9 real API terms with exact locations + 5 npm script names (prompt fixed, re-run pending) |
+  - 8B makes one tool call per turn (4B batched 5–6), hence more calls and ~2× prompt tokens for similar model time.
+  - Fixes from this run: tour range focusing, glossary location check, architecture umbrella/unlinked-external pruning, glossary prompt, ordered-list numbering in chat answers, screenshot spec picks a cited conversation. README screenshots now show the 8B output.
 - **Kaggle / Qwen3-8B (2026-10-03):** vLLM 0.30.0 serving Qwen3-8B on 2× T4 via cloudflared; `set_llm_url` switched the stack from Ollama (model override cleared, ~600 ms health round trip). Real chat on commander.js:
   - "How does Commander handle an option that requires a value?": 61 s, 3 LLM calls, 1 search, **4 valid citations** (`lib/option.js:15-17`, `:19-21`, `:165-172`, `lib/command.js:2070-2073`). Correctly explains `<value>` → `required`, plus `mandatory`, value collection and the missing-mandatory error: more complete than the 4B answer (which blurred required vs mandatory).
   - "Where is the code that sends emails?": 10 s, searched first, honest "couldn't find", no citations.
@@ -181,6 +201,7 @@ Later candidates: chat answers in dedicated workers if load grows; a chat rate l
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
 
 ## Progress log
+- 2026-10-03: **Qwen3-8B analysis re-run** on commander.js (5/5 sections); fixed tour ranges, glossary locations, architecture umbrellas, chat list numbering; README screenshots regenerated from 8B. Glossary prompt re-run pending (Kaggle session ended).
 - 2026-10-01: Plan approved; repo initialised with remote `origin` (github.com/Akhil-0707/Repo_Onboarding_Agent).
 - 2026-10-01: Backend scaffold, LLM client + health, tests (33 local passing, 2 mongo skipped).
 - 2026-10-01: Frontend shell + tests; Docker Compose; Kaggle server; CI. Pushed; CI green (35 backend incl. Mongo, 23 frontend).

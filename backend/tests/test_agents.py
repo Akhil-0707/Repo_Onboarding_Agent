@@ -450,7 +450,12 @@ def test_symbol_lookup_prefers_exact_case() -> None:
 
 
 def test_glossary_prefers_symbol_ranges_and_drops_unverifiable_lines() -> None:
-    models = "\n".join(f"line {n}" for n in range(1, 121)).replace("line 50", "TAX_RATE = 0.2")
+    models = (
+        "\n".join(f"line {n}" for n in range(1, 121))
+        .replace("line 10\n", "class User:\n")
+        .replace("line 50", "TAX_RATE = 0.2")
+        .replace("line 70", "# used at checkout")
+    )
     index = FileIndex(FILES, SYMBOLS, content={"src/app/models.py": models}.get)
     data = {
         "terms": [
@@ -463,6 +468,9 @@ def test_glossary_prefers_symbol_ranges_and_drops_unverifiable_lines() -> None:
             # Invented line that does not mention the term: range dropped, path kept.
             {"term": "Checkout", "kind": "concept", "definition": "d",
              "path": "src/app/models.py", "start_line": 90, "end_line": 90},
+            # The file never mentions the term: location removed, term kept.
+            {"term": "test-all", "kind": "config", "definition": "d",
+             "path": "src/app/models.py", "start_line": None, "end_line": None},
         ]
     }  # fmt: skip
     report = repair_glossary(data, index)
@@ -471,5 +479,6 @@ def test_glossary_prefers_symbol_ranges_and_drops_unverifiable_lines() -> None:
         ("User", "src/app/models.py", 10, 30),
         ("TAX_RATE", "src/app/models.py", 50, 50),
         ("Checkout", "src/app/models.py", None, None),
+        ("test-all", None, None, None),
     ]
-    assert report.repaired == 2
+    assert report.repaired == 3

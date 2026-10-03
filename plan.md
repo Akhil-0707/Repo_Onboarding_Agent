@@ -96,3 +96,11 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] `seed_demo` management command
 - [x] README (architecture diagram, setup, env vars, design tradeoffs, limitations, screenshot placeholders)
 - [x] Final CI green, push
+
+## After Phase 9 — real-model follow-ups (Qwen3-8B on Kaggle)
+- [x] Kaggle vLLM server verified (torchaudio/CUDA fix, notebook v2026-10-03.3); stack switched to Qwen3-8B
+- [x] Real chat checks on Qwen3-8B (cited answer, honest "not found")
+- [x] Full 5-section analysis of commander.js on Qwen3-8B, compared with qwen3:4b-instruct
+- [x] Repair fixes from that run (tour range focusing, glossary location check, architecture umbrella pruning) + chat list numbering
+- [x] README screenshots regenerated from the 8B output
+- [ ] Verify the glossary prompt change (no package-script names) with one Glossary re-run on Qwen3-8B

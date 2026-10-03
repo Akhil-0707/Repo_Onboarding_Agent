@@ -246,6 +246,53 @@ def test_repair_tour(index: FileIndex) -> None:
     assert report.dropped_paths == ["src/ghost.py"]
 
 
+def test_tour_ranges_on_big_symbols_are_narrowed() -> None:
+    symbols = {
+        "cmd.js": [
+            {"name": "Command", "kind": "class", "start_line": 14, "end_line": 2709},
+            {"name": "constructor", "start_line": 21, "end_line": 90, "parent": "Command"},
+            {"name": "parse", "start_line": 1081, "end_line": 1087, "parent": "Command"},
+            {"name": "Help", "kind": "class", "start_line": 2800, "end_line": 3500},
+            {"name": "format", "start_line": 2830, "end_line": 2900, "parent": "Help"},
+            {"name": "run", "kind": "function", "start_line": 3600, "end_line": 3900},
+        ]
+    }
+    index = FileIndex([{"path": "cmd.js", "lines": 4000}], symbols)
+    data = tour(
+        step("core_logic", "cmd.js", symbol="Command"),
+        step("flow_trace", "cmd.js", symbol="parse"),
+        step("core_logic", "cmd.js", symbol="Help"),
+        step("core_logic", "cmd.js", symbol="run"),
+    )
+    repair_tour(data, index)
+    assert [(s["start_line"], s["end_line"]) for s in data["steps"]] == [
+        (14, 90),  # class header + constructor
+        (1081, 1087),  # short ranges untouched
+        (2800, 2829),  # no constructor: the lines before the first member
+        (3600, 3679),  # anything else: the first lines
+    ]
+
+
+def test_umbrella_modules_and_unlinked_externals_are_dropped(index: FileIndex) -> None:
+    data = {
+        "modules": [
+            module("core", ["src/"]),  # every file below is claimed by a more specific module
+            module("api", ["src/api/"]),
+            module("orders", ["src/core/"]),
+            module("db", ["src/db/"], kind="data"),
+            module("main", ["main.py"], kind="entry"),
+            module("cloud", [], kind="external"),  # only linked through the dropped umbrella
+        ],
+        "edges": [
+            {"source": "core", "target": "api", "label": "uses"},
+            {"source": "core", "target": "cloud", "label": "calls"},
+        ],
+    }
+    repair_architecture(data, index)
+    assert [m["id"] for m in data["modules"]] == ["api", "orders", "db", "main"]
+    assert all(e["derived"] for e in data["edges"])
+
+
 def test_default_module_kinds_are_inferred_from_names_and_entry_points(index: FileIndex) -> None:
     data = {
         "modules": [
@@ -253,7 +300,7 @@ def test_default_module_kinds_are_inferred_from_names_and_entry_points(index: Fi
             module("api", ["src/api/"], name="HTTP API"),
             module("helpers", ["src/core/"], name="Shared helpers"),
             module("db", ["src/db/"], kind="other", name="Database models"),
-            module("store", ["src/db/models.py"], kind="service", name="Model store"),
+            module("store", ["src/api/auth.py"], kind="service", name="Model store"),
         ],
         "edges": [],
     }

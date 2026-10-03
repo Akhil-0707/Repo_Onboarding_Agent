@@ -202,4 +202,12 @@ describe("AnswerText", () => {
     expect(screen.getByText("const x = '[app/main.py:8-11]';").tagName).toBe("CODE");
     expect(screen.getByText("<b>raw</b>")).toBeInTheDocument(); // never parsed as HTML
   });
+
+  it("keeps the numbering of list items separated by blank lines", () => {
+    renderWithProviders(
+      <AnswerText text={"1. first\n\n2. second\n\n3. third"} citations={[]} onOpen={vi.fn()} />,
+    );
+    const starts = screen.getAllByRole("list").map((list) => list.getAttribute("start"));
+    expect(starts).toEqual(["1", "2", "3"]);
+  });
 });

@@ -90,8 +90,10 @@ function Prose({
           );
         }
         if (lines.every((line) => /^\s*\d+[.)]\s+/.test(line))) {
+          // Items separated by blank lines arrive as separate blocks: keep their numbering.
+          const start = Number(/\d+/.exec(lines[0] ?? "")?.[0] ?? 1);
           return (
-            <ol key={key} className="ml-5 list-decimal">
+            <ol key={key} start={start} className="ml-5 list-decimal">
               {lines.map((line, i) => (
                 <li key={i}>
                   {inline(line.replace(/^\s*\d+[.)]\s+/, ""), known, onOpen, `${key}-${i}`)}
