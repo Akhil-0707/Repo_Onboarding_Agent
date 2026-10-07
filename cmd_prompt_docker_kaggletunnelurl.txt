@@ -1,0 +1,1 @@
+docker compose exec backend python manage.py set_llm_url https://<new-url>.trycloudflare.com/v1

@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    paths-ignore: ["**.md", "docs/**"]  # documentation-only commits need no CI
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -22,7 +24,7 @@ jobs:
           - 27017:27017
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\")'"
-          --health-interval 10s
+          --health-interval 3s
           --health-timeout 10s
           --health-retries 12
           --health-start-period 40s
@@ -32,7 +34,7 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 5s
+          --health-interval 2s
           --health-timeout 5s
           --health-retries 10
     env:
@@ -46,10 +48,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements*.txt
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: uv pip install --system -r requirements-dev.txt
       - name: Ruff
         run: ruff check .
       - name: Black
@@ -101,8 +105,21 @@ jobs:
             echo "MONGO_ROOT_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
             echo "LLM_BASE_URL=http://127.0.0.1:9/v1"
           } > .env
+      - uses: docker/setup-buildx-action@v4
+      # Layers are cached in the GitHub Actions cache: the ML layer (CPU torch) alone takes ~55 s
+      # to build. worker and beat run the backend image, so only two images are built.
       - name: Build images
-        run: docker compose -f docker-compose.prod.yml build
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          files: docker-compose.prod.yml
+          targets: backend,frontend
+          load: true
+          set: |
+            backend.cache-from=type=gha,scope=backend
+            backend.cache-to=type=gha,scope=backend,mode=max
+            frontend.cache-from=type=gha,scope=frontend
+            frontend.cache-to=type=gha,scope=frontend,mode=max
       - name: Start the stack
         run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 420
       - name: Smoke test
