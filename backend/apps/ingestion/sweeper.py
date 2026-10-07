@@ -23,7 +23,7 @@ from apps.repos.models import IngestionJob, JobStatus, RepoStatus
 logger = get_logger(__name__)
 
 
-def _abandon_analysis(job: IngestionJob, message: str) -> None:
+def abandon_analysis(job: IngestionJob, message: str) -> None:
     """The code index is fine (the repo stays browsable); only the AI analysis stopped."""
     analysis = Analysis.objects.filter(repository_id=job.repository_id).first()
     if analysis is not None:
@@ -70,7 +70,7 @@ def sweep_stale_jobs(now: datetime | None = None) -> int:
         )
         logger.warning("stale_job_swept", job=str(job.pk), status=job.status, minutes=minutes)
         if job.repository.status == RepoStatus.READY:
-            _abandon_analysis(job, message)
+            abandon_analysis(job, message)
         else:
             fail_job(str(job.pk), message)
         swept += 1

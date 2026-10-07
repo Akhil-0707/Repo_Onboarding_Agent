@@ -206,7 +206,12 @@ def test_waiting_too_long_gives_up(monkeypatch: pytest.MonkeyPatch, settings: An
     tasks.resume_waiting_analyses()
     job.refresh_from_db()
     assert job.status == "done"
-    assert Analysis.objects.get(repository=repo).status == "failed"
+    steps = {s["key"]: s for s in job.steps}
+    assert steps["analyze"]["status"] == "failed"  # not left "waiting" forever
+    assert "offline for more than" in steps["analyze"]["message"]
+    analysis = Analysis.objects.get(repository=repo)
+    assert analysis.status == "failed"
+    assert {state["status"] for state in analysis.sections.values()} == {"failed"}
 
 
 # --- real HTTP client against the fake OpenAI-compatible server ------------------------------
