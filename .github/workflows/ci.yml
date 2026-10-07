@@ -107,8 +107,8 @@ jobs:
             echo "LLM_BASE_URL=http://127.0.0.1:9/v1"
           } > .env
       # MongoDB needs ~25 s to start and does not depend on our images: start it during the build.
-      - name: Start MongoDB and Redis
-        run: docker compose -f docker-compose.prod.yml up -d mongo redis
+      - name: Start MongoDB and Redis (in the background)
+        run: nohup docker compose -f docker-compose.prod.yml up -d mongo redis > /tmp/db-up.log 2>&1 &
       - uses: docker/setup-buildx-action@v4
       # Layers are cached in the GitHub Actions cache: the ML layer (CPU torch) alone takes ~55 s
       # to build. worker and beat run the backend image, so only two images are built.
@@ -125,7 +125,10 @@ jobs:
             frontend.cache-from=type=gha,scope=frontend
             frontend.cache-to=type=gha,scope=frontend,mode=max
       - name: Start the stack
-        run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 420
+        run: |
+          while pgrep -f "up -d mongo redis" > /dev/null; do sleep 1; done
+          cat /tmp/db-up.log
+          docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 420
       - name: Smoke test
         run: sh scripts/prod-smoke-test.sh repoguide.test --sse
       - name: Service logs
