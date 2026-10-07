@@ -59,7 +59,8 @@ jobs:
       - name: Black
         run: black --check .
       - name: Pytest (with coverage floor)
-        run: pytest --cov=apps --cov-report=term-missing:skip-covered --cov-fail-under=90
+        # One worker per CPU; each gets its own test database (pytest-django + xdist).
+        run: pytest -n auto --cov=apps --cov-report=term-missing:skip-covered --cov-fail-under=90
 
   frontend:
     name: Frontend (lint + typecheck + tests + build)
