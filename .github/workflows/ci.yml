@@ -48,7 +48,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0  # this action publishes no floating major tag
         with:
           enable-cache: true
           cache-dependency-glob: backend/requirements*.txt
@@ -142,8 +142,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # The runner image already has the system libraries Chromium needs (it ships Google
+      # Chrome); --with-deps re-ran apt and once took ~170 s on a slow mirror.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Playwright
         run: npm run e2e
       - name: Upload traces
