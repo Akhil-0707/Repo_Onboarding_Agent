@@ -86,6 +86,8 @@ def test_vector_and_hybrid_search(repo: Repository) -> None:
     vector_hits = eventually(lambda: backend.vector_search(str(repo.pk), vector, 5))
     assert vector_hits and {h.path for h in vector_hits} & {"src/server.ts", "src/index.ts"}
 
+    # The text index syncs independently of the vector index (slower under parallel test load).
+    assert eventually(lambda: backend.text_search(str(repo.pk), "getUser route handler", 5))
     set_search_backend(backend)
     hybrid = hybrid_search(str(repo.pk), "getUser route handler", limit=5, embedder=embedder)
     assert hybrid and any(h.sources.keys() == {"vector", "text"} for h in hybrid)
