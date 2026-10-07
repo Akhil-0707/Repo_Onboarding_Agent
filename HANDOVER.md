@@ -12,7 +12,8 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
 - **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30).
 - **Celery dev auto-reload made real** (2026-10-03): `CELERY_RELOAD` was set in docker-compose but nothing read it. The worker/beat now run under watchfiles in dev; verified by editing a task file (worker and beat restarted). The running stack picks this up after `docker compose restart worker beat`.
-- **Production deployment** (2026-10-03): `docs/deployment.md`, `docker-compose.prod.yml`, `.env.production.example`, `config.settings.prod`. Verified by running the prod stack locally (port 8088, throwaway secrets, removed afterwards). No open tasks.
+- **Production deployment** (2026-10-03): `docs/deployment.md`, `docker-compose.prod.yml`, `.env.production.example`, `config.settings.prod`. Verified by running the prod stack locally (port 8088, throwaway secrets, removed afterwards).
+- **Production CI job** (2026-10-07): builds the prod images, starts `docker-compose.prod.yml` with throwaway secrets and runs `scripts/prod-smoke-test.sh repoguide.test --sse` (12 checks). No open tasks.
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
@@ -186,7 +187,7 @@ Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, sm
 Waiting on the developer:
 1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
 2. **Kaggle run**: follow `kaggle/README.md`; put `LLM_API_KEY` in `.env` (create it; one line is enough), `docker compose up -d`, then `set_llm_url <tunnel URL>`. That also switches the stack away from Ollama. Then re-run the smoke tests (re-analyse a repo, ask a chat question) on Qwen3-8B.
-Later candidates: chat answers in dedicated workers if load grows; a CI job that builds the production images.
+Later candidates: chat answers in dedicated workers if load grows.
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
@@ -205,8 +206,10 @@ Later candidates: chat answers in dedicated workers if load grows; a CI job that
 - Until 2026-10-03 `CELERY_RELOAD` was set but never read, so the worker never reloaded (a stale worker produced an old error message once). The reload now works; it watches `.py` files only, so after changing anything else the worker reads (e.g. `.env`, requirements) run `docker compose restart worker beat` (or rebuild).
 - GitHub's anonymous API limit (60 requests/hour per IP) is shared by every local tool; `seed_demo` accepts `GITHUB_API_TOKEN`, signed-in users use their own token.
 - Playwright clears `frontend/test-results/` at the start of each run; keep snapshot files elsewhere.
+- Running `docker-compose.prod.yml` locally next to the dev stack: put throwaway values in a file outside the repo and use `ENV_FILE=<file> docker compose --env-file <file> -f docker-compose.prod.yml ...` with `HTTP_PORT=8088` in that file; the smoke test then needs `HTTP_PORT=8088 COMPOSE="docker compose --env-file <file> -f docker-compose.prod.yml"` (and `MSYS_NO_PATHCONV=1` in Git Bash). `down -v` removes its volumes.
 
 ## Progress log
+- 2026-10-07: `scripts/prod-smoke-test.sh` + `production` CI job. Locally: 12/12 checks pass; the SSE check was shown to fail when nginx really buffers (buffering on + `proxy_ignore_headers X-Accel-Buffering` + gzip). Plain `proxy_buffering on` or gzip alone did not break streaming (backend sends `X-Accel-Buffering: no`; nginx gzip flushes per chunk when unbuffered), so the check requests gzip like a browser.
 - 2026-10-03: Production deployment: `config.settings.prod` (forces DEBUG off, refuses dev secrets, HTTPS-only cookies + redirect, proxy SSL header, quiet DisallowedHost), `docker-compose.prod.yml`, `.env.production.example`, nginx forwarded-proto + asset caching, `docs/deployment.md`. Prod stack run locally: SPA/asset caching, health exempt from redirect, HTTP→HTTPS redirect, unknown host 400 without log noise, admin not routed, `login_link` refused, SSE through nginx delivered live (each event <0.1 s), deploy check down to the opt-in HSTS warning.
 - 2026-10-03: Celery worker/beat dev auto-reload actually wired up (`CELERY_RELOAD` → watchfiles in `entrypoint.sh`); verified live on a task-file edit.
 - 2026-10-03: Creating a conversation checks the chat quota first (no empty conversations left by a refused first question).

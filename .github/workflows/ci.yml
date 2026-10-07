@@ -82,6 +82,35 @@ jobs:
       - name: Build
         run: npm run build
 
+  production:
+    name: Production images (build + smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Throwaway production environment
+        run: |
+          secret() { python3 -c 'import secrets; print(secrets.token_urlsafe(64))'; }
+          {
+            echo "FRONTEND_URL=https://repoguide.test"
+            echo "DJANGO_ALLOWED_HOSTS=repoguide.test,localhost"
+            echo "DJANGO_SECRET_KEY=$(secret)"
+            echo "JWT_SIGNING_KEY=$(secret)"
+            echo "GITHUB_CLIENT_ID=ci"
+            echo "GITHUB_CLIENT_SECRET=ci"
+            echo "TOKEN_ENCRYPTION_KEYS=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')"
+            echo "MONGO_ROOT_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+            echo "LLM_BASE_URL=http://127.0.0.1:9/v1"
+          } > .env
+      - name: Build images
+        run: docker compose -f docker-compose.prod.yml build
+      - name: Start the stack
+        run: docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 420
+      - name: Smoke test
+        run: sh scripts/prod-smoke-test.sh repoguide.test --sse
+      - name: Service logs
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 200
+
   e2e:
     name: E2E (Playwright, mocked backend)
     runs-on: ubuntu-latest

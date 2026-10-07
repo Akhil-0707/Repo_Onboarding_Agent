@@ -123,3 +123,8 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] nginx: keep the proxy's `X-Forwarded-Proto`, immutable caching for hashed assets
 - [x] `docs/deployment.md` (reverse proxy, model server, backups, security checklist, sizing, troubleshooting), linked from the README
 - [x] Tests (prod settings) + prod stack run locally and checked end to end
+
+## Production CI — ✅ Completed (2026-10-07)
+- [x] `scripts/prod-smoke-test.sh` (12 HTTP checks + optional live-SSE check through nginx), proven to fail on a buffering proxy
+- [x] `production` CI job: build prod images, start `docker-compose.prod.yml` with throwaway secrets, run the smoke test
+- [x] Deployment guide and README point at the script

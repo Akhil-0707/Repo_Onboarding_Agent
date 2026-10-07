@@ -51,13 +51,18 @@ docker compose -f docker-compose.prod.yml ps
 - the embedding model (`BAAI/bge-small-en-v1.5`, ~130 MB) is downloaded once into the
   `hf_cache` volume.
 
-Check it:
+Check it with the smoke test, on the server (it talks to the nginx port directly, so it works
+before the HTTPS proxy is set up):
 
 ```bash
-curl -s -H "Host: repoguide.example.com" http://127.0.0.1:8080/api/health
+scripts/prod-smoke-test.sh repoguide.example.com --sse
 ```
 
-`{"status": "ok", "mongo": true, "cache": true}` means the backend reaches MongoDB and Redis.
+It checks the app page and asset caching, service health, the HTTP-to-HTTPS redirect, that data
+needs a signed-in user, that unknown hosts are refused, that the admin and development sign-in
+links are unavailable and, with `--sse`, that progress events stream through nginx live (it
+creates a temporary user and job and deletes them). CI runs the same script against a freshly
+built production stack on every push.
 
 ## 3. HTTPS and the reverse proxy
 

@@ -208,8 +208,9 @@ When MongoDB runs in Docker with credentials, point the tests at it with
 `MONGODB_URI="mongodb://repoguide:<password>@localhost:27017/?directConnection=true&authSource=admin"`.
 
 CI (GitHub Actions) runs ruff, black, pytest against real `mongodb-atlas-local` and Redis
-services, ESLint, Prettier, tsc, Vitest with coverage floors, the production build, and the
-Playwright suite.
+services, ESLint, Prettier, tsc, Vitest with coverage floors, the production build, the
+Playwright suite, and builds the production images, starts `docker-compose.prod.yml` and runs
+[`scripts/prod-smoke-test.sh`](scripts/prod-smoke-test.sh) against it.
 
 ## Design decisions and trade-offs
 
