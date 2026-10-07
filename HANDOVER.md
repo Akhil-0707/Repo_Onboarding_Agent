@@ -186,7 +186,6 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, smarter `set_llm_url`, flow-trace pick, idempotent architecture repair; `pallets/itsdangerous` analysed for real (5/5 sections).
 Waiting on the developer:
 1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
-2. **Kaggle run**: follow `kaggle/README.md`; put `LLM_API_KEY` in `.env` (create it; one line is enough), `docker compose up -d`, then `set_llm_url <tunnel URL>`. That also switches the stack away from Ollama. Then re-run the smoke tests (re-analyse a repo, ask a chat question) on Qwen3-8B.
 Later candidates: chat answers in dedicated workers if load grows.
 
 ## Known follow-ups (later phases)
