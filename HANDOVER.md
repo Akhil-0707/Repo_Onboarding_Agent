@@ -6,7 +6,8 @@ Living document. Update after every meaningful step. A fresh session should be a
 - **Phase:** 9 complete. **All planned phases (1–9) are done.** Since then: real README screenshots, dev tooling, and the **Kaggle model server is verified working** (2026-10-03).
 - **Last commit:** see `git log -1`.
 - **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://trial-reports-org-yourself.trycloudflare.com/v1` and dies when the notebook stops.
-- **`.env`** (gitignored) now exists and holds only `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`), created by the developer. Never print or commit it. All other settings use defaults.
+- **`.env`** (gitignored) holds `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`) and, since 2026-10-07, `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` of the developer's local OAuth App "RepoGuide (local)" (callback `http://localhost:5173/api/auth/github/callback`). Created by the developer; never print or commit it. All other settings use defaults.
+- **Real GitHub sign-in works locally** (2026-10-07): the developer signed in as `Akhil-0707`; their encrypted token is stored, so adding repositories uses their 5,000/h GitHub limit instead of the shared anonymous 60/h.
 - **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
 - **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
 - **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
@@ -184,8 +185,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 
 ## Next steps (after Phase 9)
 Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, smarter `set_llm_url`, flow-trace pick, idempotent architecture repair; `pallets/itsdangerous` analysed for real (5/5 sections).
-Waiting on the developer:
-1. **Look at the app signed in**: `docker compose exec backend python manage.py login_link` → open the printed link within 60 s.
+Waiting on the developer: nothing.
 Later candidates: chat answers in dedicated workers if load grows.
 
 ## Known follow-ups (later phases)
@@ -208,6 +208,7 @@ Later candidates: chat answers in dedicated workers if load grows.
 - Running `docker-compose.prod.yml` locally next to the dev stack: put throwaway values in a file outside the repo and use `ENV_FILE=<file> docker compose --env-file <file> -f docker-compose.prod.yml ...` with `HTTP_PORT=8088` in that file; the smoke test then needs `HTTP_PORT=8088 COMPOSE="docker compose --env-file <file> -f docker-compose.prod.yml"` (and `MSYS_NO_PATHCONV=1` in Git Bash). `down -v` removes its volumes.
 
 ## Progress log
+- 2026-10-07: GitHub OAuth configured locally (developer's own OAuth App); real sign-in verified end to end.
 - 2026-10-07: `scripts/prod-smoke-test.sh` + `production` CI job. Locally: 12/12 checks pass; the SSE check was shown to fail when nginx really buffers (buffering on + `proxy_ignore_headers X-Accel-Buffering` + gzip). Plain `proxy_buffering on` or gzip alone did not break streaming (backend sends `X-Accel-Buffering: no`; nginx gzip flushes per chunk when unbuffered), so the check requests gzip like a browser.
 - 2026-10-03: Production deployment: `config.settings.prod` (forces DEBUG off, refuses dev secrets, HTTPS-only cookies + redirect, proxy SSL header, quiet DisallowedHost), `docker-compose.prod.yml`, `.env.production.example`, nginx forwarded-proto + asset caching, `docs/deployment.md`. Prod stack run locally: SPA/asset caching, health exempt from redirect, HTTP→HTTPS redirect, unknown host 400 without log noise, admin not routed, `login_link` refused, SSE through nginx delivered live (each event <0.1 s), deploy check down to the opt-in HSTS warning.
 - 2026-10-03: Celery worker/beat dev auto-reload actually wired up (`CELERY_RELOAD` → watchfiles in `entrypoint.sh`); verified live on a task-file edit.
