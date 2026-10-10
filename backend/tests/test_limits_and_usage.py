@@ -195,6 +195,28 @@ def test_private_access_is_rechecked_and_revoked(host: Any, settings: Any) -> No
     assert not UserRepository.objects.filter(pk=link.pk).exists()
 
 
+def test_rejected_github_token_asks_to_sign_in_again(host: Any, settings: Any) -> None:
+    host.private = True
+    client, user = client_for("ada")
+    repo_id = analyze(client).json()["repository"]["id"]
+    link = UserRepository.objects.get(user=user, repository_id=repo_id)
+
+    host.token_rejected = True
+    refused = analyze(client, "go_app")
+    assert refused.status_code == 403
+    error = refused.json()["error"]
+    assert error["code"] == "github_reauth_required"
+    assert "sign in with GitHub again" in error["message"] and "rate limit" not in error["message"]
+    assert not Repository.objects.filter(name="go_app").exists()
+
+    # The private-access re-check must not mistake a dead token for lost access.
+    UserRepository.objects.filter(pk=link.pk).update(access_checked_at=None)
+    recheck = client.get(f"/api/repos/{repo_id}")
+    assert recheck.status_code == 403
+    assert recheck.json()["error"]["code"] == "github_reauth_required"
+    assert UserRepository.objects.filter(pk=link.pk).exists()
+
+
 def test_public_repos_never_call_github_for_reads(host: Any) -> None:
     client, _ = client_for("ada")
     repo_id = analyze(client).json()["repository"]["id"]

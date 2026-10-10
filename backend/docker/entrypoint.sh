@@ -17,8 +17,10 @@ case "$role" in
     python manage.py migrate --noinput
     python manage.py ensure_indexes
     python manage.py ensure_search_indexes || echo "search indexes not ready yet; search degrades until they are"
+    # Progress and chat streams stay open indefinitely: without a timeout a dev reload (or a
+    # restart) waits for them forever and the API stops answering. Clients reconnect.
     exec uvicorn config.asgi:application --host 0.0.0.0 --port 8000 \
-      ${UVICORN_RELOAD:+--reload} --proxy-headers
+      ${UVICORN_RELOAD:+--reload} --proxy-headers --timeout-graceful-shutdown 5
     ;;
   worker)
     run_celery celery -A config worker --loglevel "${LOG_LEVEL:-INFO}" \

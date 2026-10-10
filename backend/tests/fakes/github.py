@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from apps.ingestion.errors import IngestionError, RepositoryNotFoundError
-from apps.ingestion.github import CodeHost, RepoInfo, RepoRef
+from apps.ingestion.errors import GitHubTokenRejectedError, IngestionError, RepositoryNotFoundError
+from apps.ingestion.github import REAUTH_MESSAGE, CodeHost, RepoInfo, RepoRef
 
 
 class FakeCodeHost(CodeHost):
@@ -12,6 +12,7 @@ class FakeCodeHost(CodeHost):
         self.private = False
         self.denied: set[str | None] = set()  # tokens that may not see the repository
         self.down = False
+        self.token_rejected = False  # GitHub refuses the stored token; anonymous fails too
         self.calls = 0
         self.tokens: list[str | None] = []
 
@@ -20,6 +21,8 @@ class FakeCodeHost(CodeHost):
         self.tokens.append(token)
         if self.down:
             raise IngestionError("GitHub is unavailable.")
+        if self.token_rejected:
+            raise GitHubTokenRejectedError(REAUTH_MESSAGE)
         if token in self.denied or ref.name == "missing":
             raise RepositoryNotFoundError("Repository not found.")
         return RepoInfo(

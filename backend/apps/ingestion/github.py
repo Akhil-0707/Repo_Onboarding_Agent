@@ -10,9 +10,18 @@ import httpx
 from django.conf import settings
 
 from apps.common.logging import get_logger
-from apps.ingestion.errors import IngestionError, RepositoryNotFoundError
+from apps.ingestion.errors import (
+    GitHubTokenRejectedError,
+    IngestionError,
+    RepositoryNotFoundError,
+)
 
 logger = get_logger(__name__)
+
+REAUTH_MESSAGE = (
+    "GitHub no longer accepts your sign-in (it may have been revoked), so RepoGuide could only use "
+    "GitHub's limited anonymous access, which failed. Sign out and sign in with GitHub again."
+)
 
 _NAME = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
 _HOSTS = {"github.com", "www.github.com"}
@@ -82,6 +91,10 @@ class GitHubCodeHost(CodeHost):
             # Revoked/expired user token: public repositories still work anonymously.
             logger.info("github_token_rejected_falling_back_to_anonymous")
             response = self._get(path, None, accept)
+            if response.status_code >= 400:
+                # The real problem is the dead token, not what the anonymous retry ran into
+                # (GitHub's shared per-IP limit, or a private repository it cannot see).
+                raise GitHubTokenRejectedError(REAUTH_MESSAGE)
         if response.status_code == 404:
             raise RepositoryNotFoundError(
                 "Repository not found. Check the URL, or grant private repository access in "

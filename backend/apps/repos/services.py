@@ -16,7 +16,11 @@ from apps.accounts.models import User
 from apps.accounts.services import get_github_token
 from apps.common.errors import ApiError, NotFoundError
 from apps.common.logging import get_logger
-from apps.ingestion.errors import IngestionError, RepositoryNotFoundError
+from apps.ingestion.errors import (
+    GitHubTokenRejectedError,
+    IngestionError,
+    RepositoryNotFoundError,
+)
 from apps.ingestion.github import RepoInfo, get_code_host, parse_repo_url
 from apps.ingestion.progress import initial_steps
 from apps.repos.models import IngestionJob, JobStatus, Repository, RepoStatus, UserRepository
@@ -36,6 +40,11 @@ class RepoTooLarge(ApiError):
 class GitHubUnavailable(ApiError):
     status_code = 502
     default_code = "github_error"
+
+
+class GitHubReauthRequired(ApiError):
+    status_code = 403  # not 401: that would make the web client refresh its own session instead
+    default_code = "github_reauth_required"
 
 
 class AnalysisInProgress(ApiError):
@@ -76,6 +85,8 @@ def resolve_repo(user: User, url: str) -> RepoInfo:
         raise InvalidRepoUrl()
     try:
         return get_code_host().resolve(ref, _user_token(user))
+    except GitHubTokenRejectedError as exc:
+        raise GitHubReauthRequired(str(exc)) from exc
     except RepositoryNotFoundError as exc:
         raise NotFoundError(str(exc)) from exc
     except IngestionError as exc:
@@ -218,6 +229,9 @@ def _ensure_private_access(user: User, link: UserRepository) -> None:
         if ref is None:
             raise RepositoryNotFoundError("Unrecognised repository URL.")
         get_code_host().resolve(ref, _user_token(user))
+    except GitHubTokenRejectedError as exc:
+        # A dead token says nothing about access: keep the link, ask for a new sign-in.
+        raise GitHubReauthRequired(str(exc)) from exc
     except RepositoryNotFoundError as exc:
         link.delete()  # access revoked: the cached analysis is no longer visible to this user
         logger.info("private_access_revoked", repo=repository.full_name)

@@ -15,7 +15,7 @@ from django.core.exceptions import ImproperlyConfigured
 from apps.accounts import crypto
 from apps.accounts.github_oauth import GitHubOAuthClient, GitHubOAuthError, GitHubToken
 from apps.common.events import RedisEventBus
-from apps.ingestion.errors import IngestionError, RepositoryNotFoundError
+from apps.ingestion.errors import GitHubTokenRejectedError, IngestionError, RepositoryNotFoundError
 from apps.ingestion.github import GitHubCodeHost, RepoRef
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -91,6 +91,21 @@ def test_rejected_token_falls_back_to_anonymous(github: Any) -> None:
     info = GitHubCodeHost().resolve(RepoRef("acme", "widget"), "revoked")
     assert info.head_sha == SHA
     assert "Authorization" in github[0][1] and "Authorization" not in github[1][1]
+
+
+@pytest.mark.parametrize(
+    "anonymous_reply",
+    [
+        respond(403, {}, **{"x-ratelimit-remaining": "0"}),  # shared per-IP limit used up
+        respond(404, {}),  # a private repository is invisible without the token
+    ],
+)
+def test_rejected_token_is_reported_when_the_anonymous_retry_fails(
+    github: Any, anonymous_reply: Any
+) -> None:
+    script(github, respond(401, {}), anonymous_reply)
+    with pytest.raises(GitHubTokenRejectedError, match="sign in with GitHub again"):
+        GitHubCodeHost().resolve(RepoRef("acme", "widget"), "revoked")
 
 
 @pytest.mark.parametrize(
