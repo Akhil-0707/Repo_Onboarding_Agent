@@ -6,6 +6,56 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* Motion: one soft ease-out curve; durations stay in the 150-350 ms range. */
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-page-in: page-in 280ms var(--ease-soft) both;
+  --animate-fade-up: fade-up 320ms var(--ease-soft) both;
+  --animate-fade-in: fade-in 220ms ease-out both;
+  --animate-slide-in-right: slide-in-right 300ms var(--ease-soft) both;
+  --animate-pop-in: pop-in 160ms var(--ease-soft) both;
+
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-4px);
+    }
+  }
+}
+
+/* Graphite: a monochrome brand gradient that inverts with the theme so it always contrasts. */
+:root {
+  --brand-from: #0f172a;
+  --brand-to: #475569;
+  --brand-on: #ffffff;
+}
+.dark {
+  --brand-from: #f8fafc;
+  --brand-to: #94a3b8;
+  --brand-on: #0f172a;
 }
 
 @layer base {
@@ -19,11 +69,143 @@
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
   }
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-indigo-500;
+    @apply outline-2 outline-offset-2 outline-slate-900 dark:outline-slate-100;
   }
+  ::selection {
+    @apply bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900;
+  }
+}
+
+/* The brand gradient as a fill (with its readable text colour) and as text. */
+@utility bg-brand {
+  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  color: var(--brand-on);
+}
+@utility text-brand {
+  background-image: linear-gradient(90deg, var(--brand-from), var(--brand-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Buttons: one gradient primary per view; everything else is quiet. */
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 150ms var(--ease-soft),
+    opacity 200ms ease-out,
+    background-color 200ms ease-out,
+    color 200ms ease-out,
+    box-shadow 200ms ease-out;
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+@utility btn-primary {
+  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  color: var(--brand-on);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.12);
+  &:hover:not(:disabled) {
+    opacity: 0.88;
+    box-shadow: 0 4px 14px rgb(15 23 42 / 0.16);
+  }
+}
+@utility btn-secondary {
+  @apply bg-slate-900/5 text-slate-900 hover:bg-slate-900/10 dark:bg-white/10 dark:text-slate-100 dark:hover:bg-white/15;
+}
+@utility btn-ghost {
+  @apply text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
+}
+
+/* Text inputs: borderless fill with a ring that sharpens on focus. */
+@utility field {
+  @apply w-full rounded-[0.625rem] bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-900/10 transition-shadow duration-200 ring-inset placeholder:text-slate-400 hover:ring-slate-900/20 focus:ring-2 focus:ring-slate-900 focus:outline-none dark:bg-white/5 dark:ring-white/10 dark:placeholder:text-slate-500 dark:hover:ring-white/20 dark:focus:ring-slate-200;
+}
+
+/* Surfaces: hairline rings instead of borders; interactive ones lift slightly on hover. */
+@utility surface {
+  @apply rounded-2xl bg-white ring-1 ring-slate-900/[0.06] dark:bg-white/[0.03] dark:ring-white/[0.07];
+}
+@utility surface-hover {
+  transition:
+    transform 200ms var(--ease-soft),
+    box-shadow 200ms ease-out,
+    background-color 200ms ease-out;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -12px rgb(15 23 42 / 0.18);
+  }
+}
+
+/* Children fade up one after another (first ten staggered, the rest together). */
+@utility stagger {
+  & > * {
+    animation: fade-up 320ms var(--ease-soft) both;
+  }
+  & > :nth-child(2) {
+    animation-delay: 45ms;
+  }
+  & > :nth-child(3) {
+    animation-delay: 90ms;
+  }
+  & > :nth-child(4) {
+    animation-delay: 135ms;
+  }
+  & > :nth-child(5) {
+    animation-delay: 180ms;
+  }
+  & > :nth-child(6) {
+    animation-delay: 225ms;
+  }
+  & > :nth-child(7) {
+    animation-delay: 270ms;
+  }
+  & > :nth-child(8) {
+    animation-delay: 315ms;
+  }
+  & > :nth-child(9) {
+    animation-delay: 360ms;
+  }
+  & > :nth-child(10) {
+    animation-delay: 405ms;
+  }
+  & > :nth-child(n + 11) {
+    animation-delay: 450ms;
+  }
+}
+
+/* Small uppercase section labels. */
+@utility eyebrow {
+  @apply text-xs font-medium tracking-wider text-slate-500 uppercase dark:text-slate-400;
 }
 
 /* Shiki dual-theme tokens: light colour inline, dark colour in --dark. */
 .dark .code-token[style] {
   color: var(--dark) !important;
+}
+
+/* Respect the system "reduce motion" setting everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

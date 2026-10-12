@@ -6,15 +6,16 @@ import { renderWithProviders } from "../test/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
 describe("ThemeToggle", () => {
-  it("toggles the dark class and remembers the choice", async () => {
+  it("starts dark, toggles the dark class and remembers the choice", async () => {
     renderWithProviders(<ThemeToggle />);
-    expect(document.documentElement).not.toHaveClass("dark");
+    expect(document.documentElement).toHaveClass("dark"); // dark is the default
 
-    await userEvent.click(await screen.findByRole("button", { name: /switch to dark mode/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /switch to light mode/i }));
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(window.localStorage.getItem("repoguide.theme")).toBe("light");
+
+    await userEvent.click(screen.getByRole("button", { name: /switch to dark mode/i }));
     expect(document.documentElement).toHaveClass("dark");
     expect(window.localStorage.getItem("repoguide.theme")).toBe("dark");
-
-    await userEvent.click(screen.getByRole("button", { name: /switch to light mode/i }));
-    expect(document.documentElement).not.toHaveClass("dark");
   });
 });

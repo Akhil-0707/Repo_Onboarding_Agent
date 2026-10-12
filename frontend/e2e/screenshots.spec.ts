@@ -68,7 +68,10 @@ async function replay(page: Page, snapshot: Snapshot, overrides: Record<string, 
 
 async function shoot(page: Page, name: string) {
   await page.waitForLoadState("networkidle");
-  await page.screenshot({ path: `${OUT}/${name}.png` });
+  // A stylesheet that failed to load would still let the content assertions pass.
+  await expect(page.locator("body")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  // Pages and lists fade in: capture their final state, not the first frame.
+  await page.screenshot({ path: `${OUT}/${name}.png`, animations: "disabled" });
 }
 
 test("dashboard", async ({ page }) => {
@@ -116,7 +119,9 @@ test("progress", async ({ page }) => {
   }, events);
   await page.goto(`/repos/${snapshot.repo_id}/progress`);
   await expect(page.getByRole("list", { name: "Ingestion steps" })).toBeVisible();
-  await page.screenshot({ path: `${OUT}/progress.png` });
+  // The open event stream keeps the network busy, so this skips shoot()'s idle wait.
+  await expect(page.locator("body")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await page.screenshot({ path: `${OUT}/progress.png`, animations: "disabled" });
 });
 
 test("workspace overview", async ({ page }) => {

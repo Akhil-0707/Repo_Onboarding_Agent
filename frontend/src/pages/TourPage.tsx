@@ -50,9 +50,12 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-slate-200 px-4 py-2 dark:border-slate-800">
+      <div className="border-b border-slate-900/[0.06] px-4 py-2.5 dark:border-white/[0.06]">
         <div className="flex items-center gap-3 text-sm">
-          <Link to={`/repos/${repoId}?tab=tour`} className="text-slate-500 hover:underline">
+          <Link
+            to={`/repos/${repoId}?tab=tour`}
+            className="text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          >
             ← Back to workspace
           </Link>
           <span className="ml-auto text-slate-500" aria-live="polite">
@@ -66,10 +69,10 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
           aria-valuemax={total}
           aria-valuenow={index + 1}
           aria-valuetext={`Step ${index + 1} of ${total}`}
-          className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          className="mt-2.5 h-1 overflow-hidden rounded-full bg-slate-900/[0.06] dark:bg-white/[0.08]"
         >
           <div
-            className="h-full rounded-full bg-indigo-600 transition-[width]"
+            className="bg-brand h-full rounded-full transition-[width] duration-500 ease-out"
             style={{ width: `${percent}%` }}
           />
         </div>
@@ -78,21 +81,24 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
       <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-1">
         <section
           aria-label="Code"
-          className="order-2 min-h-[50vh] min-w-0 border-slate-200 lg:order-1 lg:min-h-0 lg:border-r dark:border-slate-800"
+          className="order-2 min-h-[50vh] min-w-0 border-slate-900/[0.06] lg:order-1 lg:min-h-0 lg:border-r dark:border-white/[0.06]"
         >
           <CodeViewer key={step.path} repoId={repoId} path={step.path} range={range} />
         </section>
 
         <aside
           aria-label="Explanation"
-          className="order-1 flex min-h-0 flex-col gap-4 overflow-auto p-5 lg:order-2"
+          className="order-1 flex min-h-0 flex-col gap-5 overflow-auto p-6 lg:order-2"
         >
-          <div>
+          <div key={`title-${index}`} className="animate-fade-up">
             <TourKindBadge kind={step.kind} />
-            <h1 className="mt-2 text-xl font-semibold">{step.title}</h1>
+            <h1 className="mt-2.5 text-xl font-semibold tracking-tight">{step.title}</h1>
             {step.symbol && <p className="mt-1 font-mono text-xs text-slate-500">{step.symbol}</p>}
           </div>
-          <p className="leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-300">
+          <p
+            key={`text-${index}`}
+            className="animate-fade-up leading-relaxed whitespace-pre-line text-slate-700 [animation-delay:60ms] dark:text-slate-300"
+          >
             {step.explanation}
           </p>
           <div className="flex items-center gap-2">
@@ -100,22 +106,19 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
               type="button"
               onClick={() => go(index - 1)}
               disabled={index === 0}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="btn btn-secondary px-3 py-1.5"
             >
               ← Previous
             </button>
             {last ? (
-              <Link
-                to={`/repos/${repoId}?tab=tour`}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
-              >
+              <Link to={`/repos/${repoId}?tab=tour`} className="btn btn-primary px-3 py-1.5">
                 Finish
               </Link>
             ) : (
               <button
                 type="button"
                 onClick={() => go(index + 1)}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+                className="btn btn-primary px-3 py-1.5"
               >
                 Next →
               </button>
@@ -124,7 +127,7 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
           </div>
           <nav
             aria-label="Tour steps"
-            className="border-t border-slate-200 pt-3 dark:border-slate-800"
+            className="border-t border-slate-900/[0.06] pt-4 dark:border-white/[0.06]"
           >
             <ol className="flex flex-col gap-0.5 text-sm">
               {tour.steps.map((item, i) => (
@@ -133,10 +136,10 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
                     type="button"
                     onClick={() => go(i)}
                     aria-current={i === index ? "step" : undefined}
-                    className={`w-full rounded px-2 py-1 text-left ${
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-left transition-colors duration-200 ${
                       i === index
-                        ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                        ? "bg-slate-900/[0.06] font-medium text-slate-900 dark:bg-white/10 dark:text-white"
+                        : "text-slate-500 hover:bg-slate-900/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white"
                     }`}
                   >
                     {i + 1}. {item.title}
@@ -180,7 +183,7 @@ export function TourPage() {
       {analysis.data.sections.tour.status !== "done" && (
         <Link
           to={`/repos/${repoId}?tab=tour`}
-          className="block px-6 pt-4 text-sm text-slate-500 hover:underline"
+          className="block px-6 pt-4 text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           ← Back to workspace
         </Link>

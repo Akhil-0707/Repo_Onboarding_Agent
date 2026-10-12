@@ -12,7 +12,7 @@ export function TourKindBadge({ kind }: { kind: Tour["steps"][number]["kind"] })
       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
         flow
           ? "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
-          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          : "bg-slate-900/[0.05] text-slate-600 dark:bg-white/[0.07] dark:text-slate-300"
       }`}
     >
       {TOUR_KIND_LABELS[kind]}
@@ -30,25 +30,19 @@ export function TourSection({
   onOpen: (ref: CodeRef) => void;
 }) {
   return (
-    <div className="p-6">
+    <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="mb-5 flex flex-wrap items-center gap-4">
         <p className="max-w-2xl flex-1 text-slate-700 dark:text-slate-300">{data.intro}</p>
-        <Link
-          to={`/repos/${repoId}/tour`}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-        >
+        <Link to={`/repos/${repoId}/tour`} className="btn btn-primary">
           Start the tour →
         </Link>
       </div>
-      <ol className="flex flex-col gap-3" aria-label="Tour stops">
+      <ol className="stagger flex flex-col gap-3" aria-label="Tour stops">
         {data.steps.map((step, index) => (
-          <li
-            key={`${step.path}-${index}`}
-            className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-          >
+          <li key={`${step.path}-${index}`} className="flex gap-4 surface surface-hover p-4">
             <span
               aria-hidden="true"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold dark:bg-slate-700"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900/[0.06] text-sm font-semibold tabular-nums dark:bg-white/10"
             >
               {index + 1}
             </span>
@@ -56,7 +50,7 @@ export function TourSection({
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   to={`/repos/${repoId}/tour?step=${index + 1}`}
-                  className="font-semibold hover:underline"
+                  className="font-semibold underline-offset-4 hover:underline"
                 >
                   {step.title}
                 </Link>

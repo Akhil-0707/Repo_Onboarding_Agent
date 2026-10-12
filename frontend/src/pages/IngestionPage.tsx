@@ -31,12 +31,12 @@ function StepRow({ step }: { step: JobStep }) {
     toggled ?? (step.status === "running" || step.status === "failed" || step.status === "waiting");
 
   return (
-    <li className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <li className="surface overflow-hidden">
       <button
         type="button"
         onClick={() => setToggled(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.02]"
       >
         <span
           aria-hidden="true"
@@ -49,15 +49,15 @@ function StepRow({ step }: { step: JobStep }) {
         <span className="sr-only">{step.status}</span>
       </button>
       {step.status === "running" && (
-        <div className="mx-4 mb-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+        <div className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-slate-900/[0.06] dark:bg-white/[0.08]">
           <div
-            className="h-full bg-sky-500 transition-all"
+            className="bg-brand h-full rounded-full transition-[width] duration-700 ease-out"
             style={{ width: `${Math.max(step.progress, 5)}%` }}
           />
         </div>
       )}
       {open && step.logs.length > 0 && (
-        <ol className="max-h-48 overflow-auto border-t border-slate-200 bg-slate-50 px-4 py-2 font-mono text-xs dark:border-slate-800 dark:bg-slate-950">
+        <ol className="animate-fade-in max-h-48 overflow-auto border-t border-slate-900/[0.06] bg-slate-900/[0.02] px-4 py-2 font-mono text-xs dark:border-white/[0.06] dark:bg-black/20">
           {step.logs.map((log, index) => (
             <li
               key={`${log.ts}-${index}`}
@@ -104,12 +104,17 @@ export function IngestionPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <Link to="/dashboard" className="text-sm text-slate-500 hover:underline">
+      <Link
+        to="/dashboard"
+        className="text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+      >
         ← Dashboard
       </Link>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-mono text-2xl font-bold">{repo.data?.full_name ?? "…"}</h1>
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">
+            {repo.data?.full_name ?? "…"}
+          </h1>
           {repo.data && (
             <p className="mt-1 text-sm text-slate-500">
               {repo.data.default_branch} @{" "}
@@ -131,10 +136,10 @@ export function IngestionPage() {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Ingestion progress"
-          className="mt-1 h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-900/[0.06] dark:bg-white/[0.08]"
         >
           <div
-            className={`h-full transition-all ${job?.status === "failed" ? "bg-rose-500" : "bg-indigo-600"}`}
+            className={`h-full rounded-full transition-[width] duration-700 ease-out ${job?.status === "failed" ? "bg-rose-500" : "bg-brand"}`}
             style={{ width: `${job?.progress ?? 0}%` }}
           />
         </div>
@@ -143,7 +148,7 @@ export function IngestionPage() {
       {job?.status === "waiting_for_model" && (
         <p
           role="status"
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          className="animate-fade-in mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-400/[0.06] dark:text-amber-200 dark:ring-amber-400/20"
         >
           The AI model is offline. The analysis is paused and resumes automatically when it is back.
         </p>
@@ -172,7 +177,7 @@ export function IngestionPage() {
       {!job ? (
         <LoadingState label="Connecting to progress stream" />
       ) : (
-        <ol className="mt-6 flex flex-col gap-2" aria-label="Ingestion steps">
+        <ol className="stagger mt-8 flex flex-col gap-2" aria-label="Ingestion steps">
           {job.steps.map((step) => (
             <StepRow key={step.key} step={step} />
           ))}
@@ -180,10 +185,7 @@ export function IngestionPage() {
       )}
 
       {(done || repo.data?.status === "ready") && (
-        <Link
-          to={`/repos/${repoId}`}
-          className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
-        >
+        <Link to={`/repos/${repoId}`} className="btn btn-primary animate-fade-up mt-8">
           {done ? "Open workspace" : "Browse the code while the AI analysis runs"}
         </Link>
       )}

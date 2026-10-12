@@ -21,7 +21,7 @@ function readStoredPreference(): ThemePreference {
   } catch {
     // storage unavailable (private mode, blocked cookies)
   }
-  return "system";
+  return "dark"; // dark by default; light or "system" once the user picks it
 }
 
 function systemPrefersDark(): boolean {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useAnalysis } from "../api/analysis";
@@ -31,27 +31,89 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-function Stat({ label, value }: { label: string; value: number | undefined }) {
+function Stat({
+  label,
+  value,
+  index,
+}: {
+  label: string;
+  value: number | undefined;
+  index: number;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="text-lg font-semibold">{value?.toLocaleString() ?? "—"}</dd>
+    <div
+      className="animate-fade-up rounded-xl bg-slate-900/[0.03] p-4 dark:bg-white/[0.04]"
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
+        {value?.toLocaleString() ?? "—"}
+      </dd>
     </div>
+  );
+}
+
+/** Section tabs with an underline that glides to the active tab. */
+function TabBar({ active, onSelect }: { active: TabKey; onSelect: (key: TabKey) => void }) {
+  const refs = useRef<Partial<Record<TabKey, HTMLButtonElement | null>>>({});
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = refs.current[active];
+      if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [active]);
+
+  return (
+    <nav
+      role="tablist"
+      aria-label="Onboarding sections"
+      className="relative flex gap-1 overflow-x-auto border-b border-slate-900/[0.06] px-4 dark:border-white/[0.06]"
+    >
+      {TABS.map((item) => (
+        <button
+          key={item.key}
+          ref={(el) => {
+            refs.current[item.key] = el;
+          }}
+          role="tab"
+          type="button"
+          aria-selected={active === item.key}
+          onClick={() => onSelect(item.key)}
+          className={`px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
+            active === item.key
+              ? "text-slate-900 dark:text-white"
+              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+      {indicator && (
+        <span
+          aria-hidden="true"
+          className="bg-brand absolute bottom-0 left-0 h-0.5 rounded-full transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ width: indicator.width, transform: `translateX(${indicator.left}px)` }}
+        />
+      )}
+    </nav>
   );
 }
 
 function IndexSummary({ repo }: { repo: Repository }) {
   const scripts = Object.entries(repo.detection.scripts ?? {}).slice(0, 8);
   return (
-    <div className="flex flex-col gap-6 border-t border-slate-200 p-6 dark:border-slate-800">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Repository facts
-      </h2>
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 border-t border-slate-900/[0.06] px-6 py-8 dark:border-white/[0.06]">
+      <h2 className="eyebrow">Repository facts</h2>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Files" value={repo.stats.files} />
-        <Stat label="Lines" value={repo.stats.lines} />
-        <Stat label="Symbols" value={repo.stats.symbols} />
-        <Stat label="Internal imports" value={repo.stats.dependency_edges} />
+        <Stat index={0} label="Files" value={repo.stats.files} />
+        <Stat index={1} label="Lines" value={repo.stats.lines} />
+        <Stat index={2} label="Symbols" value={repo.stats.symbols} />
+        <Stat index={3} label="Internal imports" value={repo.stats.dependency_edges} />
       </dl>
       <section>
         <h3 className="mb-2 text-sm font-semibold">Languages</h3>
@@ -64,7 +126,7 @@ function IndexSummary({ repo }: { repo: Repository }) {
             {repo.frameworks.map((framework) => (
               <li
                 key={framework}
-                className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm dark:bg-slate-800"
+                className="rounded-full bg-slate-900/[0.05] px-2.5 py-0.5 text-sm dark:bg-white/[0.07]"
               >
                 {framework}
               </li>
@@ -78,7 +140,7 @@ function IndexSummary({ repo }: { repo: Repository }) {
           <ul className="font-mono text-sm">
             {scripts.map(([name, command]) => (
               <li key={name}>
-                <span className="text-indigo-600 dark:text-indigo-400">{name}</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{name}</span>
                 {command && <span className="text-slate-500"> — {command}</span>}
               </li>
             ))}
@@ -142,25 +204,28 @@ export function WorkspacePage() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-2 dark:border-slate-800">
+      <div className="flex items-center gap-3 border-b border-slate-900/[0.06] px-4 py-2 dark:border-white/[0.06]">
         <button
           type="button"
           onClick={() => setShowTree((value) => !value)}
           aria-pressed={showTree}
-          className="rounded px-2 py-1 text-sm hover:bg-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-ghost px-2.5 py-1.5"
         >
           {showTree ? "Hide files" : "Files"}
         </button>
-        <Link to="/dashboard" className="text-sm text-slate-500 hover:underline">
+        <Link
+          to="/dashboard"
+          className="text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+        >
           Dashboard
         </Link>
-        <span className="text-slate-300">/</span>
+        <span className="text-slate-300 dark:text-slate-700">/</span>
         <h1 className="truncate font-mono text-sm font-semibold">{repo.data.full_name}</h1>
         <a
           href={`${repo.data.url}/tree/${repo.data.commit_sha}`}
           target="_blank"
           rel="noreferrer"
-          className="font-mono text-xs text-slate-500 hover:underline"
+          className="font-mono text-xs text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           @{repo.data.commit_sha.slice(0, 7)}
         </a>
@@ -196,7 +261,7 @@ export function WorkspacePage() {
               onError: (error) => setNotice({ error: true, text: error.message }),
             });
           }}
-          className="ml-auto rounded-md px-3 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="btn btn-ghost ml-auto px-3 py-1.5"
         >
           {reanalyze.isPending ? "Checking…" : "Re-analyze"}
         </button>
@@ -204,7 +269,7 @@ export function WorkspacePage() {
           type="button"
           onClick={() => setChatOpen((value) => !value)}
           aria-pressed={chatOpen}
-          className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          className={`btn px-3 py-1.5 ${chatOpen ? "btn-secondary" : "btn-primary"}`}
         >
           {chatOpen ? "Close chat" : "Ask a question"}
         </button>
@@ -213,10 +278,10 @@ export function WorkspacePage() {
       {notice && (
         <div
           role={notice.error ? "alert" : "status"}
-          className={`flex items-center gap-3 border-b px-4 py-2 text-sm ${
+          className={`animate-fade-in flex items-center gap-3 border-b px-4 py-2 text-sm ${
             notice.error
-              ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-              : "border-indigo-200 bg-indigo-50 text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200"
+              ? "border-rose-200/70 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
+              : "border-slate-900/[0.06] bg-slate-900/[0.03] text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-200"
           }`}
         >
           <span className="flex-1">{notice.text}</span>
@@ -224,7 +289,7 @@ export function WorkspacePage() {
             type="button"
             onClick={() => setNotice(null)}
             aria-label="Dismiss"
-            className="rounded px-1 hover:bg-black/5"
+            className="btn btn-ghost h-7 w-7 p-0"
           >
             ✕
           </button>
@@ -235,7 +300,7 @@ export function WorkspacePage() {
         {showTree && (
           <aside
             aria-label="File tree"
-            className="w-72 shrink-0 border-r border-slate-200 bg-slate-50 max-lg:absolute max-lg:top-10 max-lg:bottom-0 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl dark:border-slate-800 dark:bg-slate-950"
+            className="animate-fade-in w-72 shrink-0 overflow-auto border-r border-slate-900/[0.06] bg-slate-50 max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl dark:border-white/[0.06] dark:bg-slate-950"
           >
             {tree.isPending && <LoadingState label="Loading files" />}
             {tree.isError && (
@@ -264,29 +329,12 @@ export function WorkspacePage() {
             />
           ) : (
             <>
-              <nav
-                role="tablist"
-                aria-label="Onboarding sections"
-                className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4 dark:border-slate-800"
+              <TabBar active={tab} onSelect={(key) => update({ tab: key })} />
+              <div
+                key={tab}
+                role="tabpanel"
+                className="animate-fade-up min-h-0 flex-1 overflow-auto"
               >
-                {TABS.map((item) => (
-                  <button
-                    key={item.key}
-                    role="tab"
-                    type="button"
-                    aria-selected={tab === item.key}
-                    onClick={() => update({ tab: item.key })}
-                    className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${
-                      tab === item.key
-                        ? "border-indigo-600 text-indigo-700 dark:text-indigo-300"
-                        : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
-              <div role="tabpanel" className="min-h-0 flex-1 overflow-auto">
                 {tab === "overview" && (
                   <>
                     <SectionShell
@@ -343,9 +391,9 @@ export function WorkspacePage() {
         {chatOpen && (
           <aside
             aria-label="Chat"
-            className="flex w-96 shrink-0 flex-col border-l border-slate-200 bg-white max-lg:absolute max-lg:top-10 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:shadow-xl dark:border-slate-800 dark:bg-slate-900"
+            className="animate-slide-in-right flex w-96 shrink-0 flex-col border-l border-slate-900/[0.06] bg-white max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:shadow-2xl dark:border-white/[0.06] dark:bg-slate-900"
           >
-            <div className="border-b border-slate-200 px-4 py-2 font-semibold dark:border-slate-800">
+            <div className="border-b border-slate-900/[0.06] px-4 py-3 text-sm font-semibold dark:border-white/[0.06]">
               Ask about this codebase
             </div>
             <div className="min-h-0 flex-1">

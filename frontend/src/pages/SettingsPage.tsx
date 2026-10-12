@@ -4,8 +4,7 @@ import { ErrorState, LoadingState } from "../components/StateViews";
 import { UsageSummary } from "../components/UsageSummary";
 import { useAuth } from "../lib/auth";
 
-const card =
-  "mt-6 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900";
+const card = "surface animate-fade-up mt-6 p-6";
 
 export function SettingsPage() {
   const health = useLLMHealth();
@@ -13,7 +12,7 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
 
       <section className={card} aria-labelledby="github-heading">
         <h2 id="github-heading" className="font-semibold">
@@ -34,7 +33,7 @@ export function SettingsPage() {
               ) : (
                 <a
                   href={githubLoginUrl({ next: "/settings", privateRepos: true })}
-                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                  className="text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-200 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
                 >
                   Grant access
                 </a>

@@ -10,19 +10,16 @@ export function StartHereSection({
   onOpen: (ref: CodeRef) => void;
 }) {
   return (
-    <div className="p-6">
+    <div className="mx-auto max-w-4xl px-6 py-8">
       <p className="mb-4 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
         Read these files in order. Each one builds on the previous.
       </p>
-      <ol className="flex flex-col gap-3" aria-label="Reading list">
+      <ol className="stagger flex flex-col gap-3" aria-label="Reading list">
         {data.files.map((file, index) => (
-          <li
-            key={file.path}
-            className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-          >
+          <li key={file.path} className="flex gap-4 surface p-4">
             <span
               aria-hidden="true"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white"
+              className="bg-brand flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
             >
               {index + 1}
             </span>

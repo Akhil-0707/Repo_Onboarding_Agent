@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RepoGuide</title>
+    <script>
+      // Apply the theme before the first paint (dark unless the user chose otherwise).
+      try {
+        var t = localStorage.getItem("repoguide.theme");
+        var dark =
+          t === "light"
+            ? false
+            : t === "system"
+              ? matchMedia("(prefers-color-scheme: dark)").matches
+              : true;
+        if (dark) document.documentElement.classList.add("dark");
+      } catch (e) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

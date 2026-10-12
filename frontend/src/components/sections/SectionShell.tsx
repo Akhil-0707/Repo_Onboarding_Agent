@@ -33,7 +33,7 @@ export function SectionShell<T>({
       <div className="p-6">
         <div
           role="status"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          className="animate-fade-up mx-auto max-w-3xl rounded-2xl bg-amber-50 p-5 text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-400/[0.06] dark:text-amber-200 dark:ring-amber-400/20"
         >
           <h3 className="font-semibold">Waiting for the AI model</h3>
           <p className="mt-1 text-sm">
@@ -52,7 +52,10 @@ export function SectionShell<T>({
     );
   }
   return (
-    <div className="flex flex-col gap-3 p-6" aria-busy="true">
+    <div
+      className="animate-fade-in mx-auto flex max-w-5xl flex-col gap-3 px-6 py-8"
+      aria-busy="true"
+    >
       <p className="text-sm text-slate-500" role="status">
         {section?.status === "running"
           ? `Writing the ${title.toLowerCase()}…`

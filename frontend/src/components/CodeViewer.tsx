@@ -70,8 +70,11 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
   const inRange = (line: number) => range !== null && line >= range.start && line <= range.end;
 
   return (
-    <section aria-label={`Code viewer: ${path}`} className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+    <section
+      aria-label={`Code viewer: ${path}`}
+      className="animate-fade-in flex h-full min-h-0 flex-col"
+    >
+      <header className="flex flex-wrap items-center gap-2 border-b border-slate-900/[0.06] px-4 py-2 dark:border-white/[0.06]">
         <h2 className="min-w-0 flex-1 truncate font-mono text-sm font-semibold" title={path}>
           {path}
           {range && (
@@ -87,7 +90,7 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
         {symbols.length > 0 && onRangeChange && (
           <select
             aria-label="Jump to symbol"
-            className="max-w-48 rounded border border-slate-300 bg-white px-1 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
+            className="max-w-48 rounded-md bg-slate-900/[0.05] px-1.5 py-1 text-xs ring-1 ring-slate-900/[0.06] dark:bg-white/[0.06] dark:ring-white/[0.08]"
             value=""
             onChange={(event) => {
               const symbol = symbols[Number(event.target.value)];
@@ -109,7 +112,7 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
           href={githubRangeLink(data.github_url, range)}
           target="_blank"
           rel="noreferrer"
-          className="rounded px-2 py-0.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950"
+          className="btn btn-ghost px-2 py-1 text-xs"
         >
           View on GitHub ↗
         </a>
@@ -118,13 +121,13 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
             type="button"
             onClick={onClose}
             aria-label="Close code viewer"
-            className="rounded px-2 py-0.5 text-sm hover:bg-slate-200 dark:hover:bg-slate-800"
+            className="btn btn-ghost h-7 w-7 p-0"
           >
             ✕
           </button>
         )}
       </header>
-      <div className="min-h-0 flex-1 overflow-auto bg-white font-mono text-[13px] leading-5 dark:bg-slate-950">
+      <div className="min-h-0 flex-1 overflow-auto bg-white font-mono text-[13px] leading-6 dark:bg-slate-950">
         <div className="min-w-max py-2">
           {lines.map((lineTokens, index) => {
             const number = index + 1;

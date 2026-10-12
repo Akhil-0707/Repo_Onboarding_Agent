@@ -1,6 +1,8 @@
 import mermaid from "mermaid";
 import { describe, expect, it } from "vitest";
 
+import { graphiteDiagram } from "../lib/mermaidTheme";
+
 // The backend renders architecture diagrams (apps/agents/mermaid.py). This keeps its output
 // format honest against the Mermaid version the frontend ships: every node shape, edge style
 // and class statement it can emit must parse.
@@ -28,6 +30,15 @@ describe("server-rendered Mermaid", () => {
     await expect(mermaid.parse(SERVER_OUTPUT)).resolves.toMatchObject({
       diagramType: "flowchart-v2",
     });
+  });
+
+  it("still parses after the Graphite recolouring, in both themes", async () => {
+    for (const dark of [false, true]) {
+      const themed = graphiteDiagram(SERVER_OUTPUT, dark);
+      expect(themed).not.toContain("#4f46e5"); // server colours replaced
+      expect(themed).toContain("stroke-dasharray:4 3"); // external stays dashed
+      await expect(mermaid.parse(themed)).resolves.toMatchObject({ diagramType: "flowchart-v2" });
+    }
   });
 
   it("rejects broken syntax (the parser is really running)", async () => {

@@ -50,10 +50,10 @@ export function ArchitectureSection({
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8">
       <p className="max-w-3xl text-slate-700 dark:text-slate-300">{data.summary}</p>
 
-      <figure className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <figure className="surface p-5">
         <MermaidDiagram
           source={data.mermaid}
           label={`Architecture diagram with ${data.modules.length} modules`}
@@ -66,27 +66,22 @@ export function ArchitectureSection({
       </figure>
 
       <section aria-labelledby="modules-heading">
-        <h2
-          id="modules-heading"
-          className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500"
-        >
+        <h2 id="modules-heading" className="eyebrow mb-3">
           Modules
         </h2>
-        <ul className="grid gap-3 lg:grid-cols-2">
+        <ul className="stagger grid gap-3 lg:grid-cols-2">
           {data.modules.map((module) => (
             <li
               key={module.id}
               id={`module-${module.id}`}
               aria-current={selected === module.id || undefined}
-              className={`rounded-xl border bg-white p-4 dark:bg-slate-900 ${
-                selected === module.id
-                  ? "border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900"
-                  : "border-slate-200 dark:border-slate-800"
+              className={`surface p-4 transition-shadow duration-300 ${
+                selected === module.id ? "ring-2 ring-slate-900 dark:ring-slate-100" : ""
               }`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold">{module.name}</h3>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span className="rounded-full bg-slate-900/[0.05] px-2 py-0.5 text-xs text-slate-600 dark:bg-white/[0.07] dark:text-slate-300">
                   {module.kind}
                 </span>
               </div>

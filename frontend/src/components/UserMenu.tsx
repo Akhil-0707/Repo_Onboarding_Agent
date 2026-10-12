@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { useAuth } from "../lib/auth";
@@ -7,32 +7,46 @@ export function UserMenu() {
   const { status, user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   if (status === "loading") return null;
   if (!user) {
     return (
-      <Link
-        to="/login"
-        className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-      >
+      <Link to="/login" className="btn btn-primary px-3 py-1.5">
         Sign in
       </Link>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={root}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-slate-300 dark:hover:ring-slate-700"
+        className="flex items-center gap-2 rounded-full p-0.5 ring-slate-900/10 transition-shadow duration-200 hover:ring-4 dark:ring-white/15"
       >
         {user.avatar_url ? (
           <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full" />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
+          <span className="bg-brand flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold">
             {user.username.slice(0, 1).toUpperCase()}
           </span>
         )}
@@ -41,14 +55,14 @@ export function UserMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          className="animate-pop-in absolute right-0 z-30 mt-2 w-52 origin-top-right rounded-xl bg-white p-1 shadow-xl ring-1 shadow-slate-900/10 ring-slate-900/[0.08] dark:bg-slate-900 dark:shadow-black/40 dark:ring-white/10"
         >
-          <p className="truncate px-3 py-2 text-sm text-slate-500">@{user.username}</p>
+          <p className="truncate px-3 py-2 text-xs text-slate-500">@{user.username}</p>
           <Link
             role="menuitem"
             to="/settings"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="block rounded-lg px-3 py-2 text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/10"
           >
             Settings
           </Link>
@@ -60,7 +74,7 @@ export function UserMenu() {
               await logout();
               navigate("/");
             }}
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/10"
           >
             Sign out
           </button>

@@ -11,7 +11,7 @@ export function LanguageBar({
   if (!entries.length) return null;
   return (
     <div>
-      <div className="flex h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+      <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-900/[0.06] dark:bg-white/[0.08]">
         {entries.map(([language, pct]) => (
           <span
             key={language}

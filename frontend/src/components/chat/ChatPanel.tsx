@@ -35,18 +35,18 @@ function MessageView({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-8 self-end rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white">
+      <div className="bg-brand animate-fade-up ml-8 self-end rounded-2xl rounded-br-md px-3.5 py-2 text-sm whitespace-pre-wrap">
         {message.content}
       </div>
     );
   }
   return (
-    <div className="mr-4">
+    <div className="animate-fade-up mr-4">
       <ToolSteps steps={message.tool_steps} />
       {message.status === "error" ? (
         <p
           role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-400/[0.06] dark:text-amber-200 dark:ring-amber-400/20"
         >
           {message.error}
         </p>
@@ -177,7 +177,7 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+      <div className="flex items-center gap-2 border-b border-slate-900/[0.06] px-3 py-2 dark:border-white/[0.06]">
         <label htmlFor="chat-thread" className="sr-only">
           Conversation
         </label>
@@ -186,7 +186,7 @@ export function ChatPanel({
           value={threadId ?? NEW}
           onChange={(event) => setSelected(event.target.value)}
           disabled={Boolean(pending)}
-          className="min-w-0 flex-1 truncate rounded border border-slate-300 bg-white px-1.5 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="min-w-0 flex-1 truncate rounded-lg bg-slate-900/[0.05] px-2 py-1.5 text-sm ring-1 ring-slate-900/[0.06] dark:bg-white/[0.06] dark:ring-white/[0.08]"
         >
           {threadId === null && <option value={NEW}>New conversation</option>}
           {threadList.map((t) => (
@@ -199,7 +199,7 @@ export function ChatPanel({
           type="button"
           onClick={() => setSelected(NEW)}
           disabled={Boolean(pending) || threadId === null}
-          className="rounded px-2 py-1 text-sm hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
+          className="btn btn-ghost px-2.5 py-1.5"
         >
           New
         </button>
@@ -208,7 +208,7 @@ export function ChatPanel({
           onClick={() => void removeThread()}
           disabled={Boolean(pending) || threadId === null}
           aria-label="Delete conversation"
-          className="rounded px-2 py-1 text-sm hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800"
+          className="btn btn-ghost px-2.5 py-1.5"
         >
           🗑
         </button>
@@ -222,14 +222,14 @@ export function ChatPanel({
               based on.
             </p>
             {starterQuestions.length > 0 && (
-              <ul aria-label="Suggested questions" className="flex flex-col gap-2">
+              <ul aria-label="Suggested questions" className="stagger flex flex-col gap-2">
                 {starterQuestions.map((question) => (
                   <li key={question}>
                     <button
                       type="button"
                       disabled={offline}
                       onClick={() => void send(question)}
-                      className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-sm text-indigo-800 hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200"
+                      className="w-full rounded-xl text-left bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-200 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       {question}
                     </button>
@@ -281,7 +281,7 @@ export function ChatPanel({
       {error && (
         <p
           role="alert"
-          className="mx-3 mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"
+          className="animate-fade-in mx-3 mb-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
         >
           {error}
         </p>
@@ -289,7 +289,7 @@ export function ChatPanel({
       {offline && (
         <p
           role="status"
-          className="mx-3 mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          className="animate-fade-in mx-3 mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-400/[0.06] dark:text-amber-200"
         >
           The AI model is offline. You can read earlier answers; asking is disabled until it is
           back.
@@ -297,7 +297,7 @@ export function ChatPanel({
       )}
 
       <form
-        className="flex items-end gap-2 border-t border-slate-200 p-3 dark:border-slate-800"
+        className="flex items-end gap-2 border-t border-slate-900/[0.06] p-3 dark:border-white/[0.06]"
         onSubmit={(event) => {
           event.preventDefault();
           void send(input);
@@ -314,22 +314,18 @@ export function ChatPanel({
           onKeyDown={onKeyDown}
           disabled={offline || Boolean(pending)}
           placeholder={offline ? "Model offline" : "Ask about the code… (Enter to send)"}
-          className="min-h-10 flex-1 resize-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
+          className="field min-h-10 flex-1 resize-none disabled:opacity-60"
         />
         {pending ? (
           <button
             type="button"
             onClick={() => abort.current?.abort()}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            className="btn btn-secondary"
           >
             Stop
           </button>
         ) : (
-          <button
-            type="submit"
-            disabled={offline || !input.trim()}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
+          <button type="submit" disabled={offline || !input.trim()} className="btn btn-primary">
             Send
           </button>
         )}

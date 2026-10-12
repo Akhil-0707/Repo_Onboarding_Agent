@@ -16,9 +16,9 @@ function seconds(ms: number): string {
 
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+    <div className="rounded-xl bg-slate-900/[0.03] p-4 dark:bg-white/[0.04]">
       <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="text-lg font-semibold">{value}</dd>
+      <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{value}</dd>
       {hint && <dd className="text-xs text-slate-500">{hint}</dd>}
     </div>
   );
@@ -39,7 +39,7 @@ export function UsageSummary() {
 
   return (
     <div className="mt-3 flex flex-col gap-5 text-sm">
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <dl className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric
           label="Analysis tokens"
           value={number.format(totals.analysis.total_tokens)}
@@ -91,7 +91,10 @@ export function UsageSummary() {
             </thead>
             <tbody>
               {repositories.map((repo) => (
-                <tr key={repo.id} className="border-t border-slate-100 dark:border-slate-800">
+                <tr
+                  key={repo.id}
+                  className="border-t border-slate-900/[0.06] dark:border-white/[0.06]"
+                >
                   <td className="py-1.5 pr-3">
                     {repo.on_dashboard ? (
                       <Link to={`/repos/${repo.id}`} className="font-mono hover:underline">

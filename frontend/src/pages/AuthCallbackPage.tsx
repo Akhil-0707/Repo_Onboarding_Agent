@@ -36,7 +36,10 @@ export function AuthCallbackPage() {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <ErrorState title="Sign-in failed" message={error} />
-        <Link to="/login" className="mt-4 inline-block text-indigo-600 hover:underline">
+        <Link
+          to="/login"
+          className="mt-4 inline-block text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-200 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
+        >
           Try again
         </Link>
       </div>

@@ -128,3 +128,11 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] `scripts/prod-smoke-test.sh` (12 HTTP checks + optional live-SSE check through nginx), proven to fail on a buffering proxy
 - [x] `production` CI job: build prod images, start `docker-compose.prod.yml` with throwaway secrets, run the smoke test
 - [x] Deployment guide and README point at the script
+
+## UI redesign (Graphite) — ✅ Completed (2026-10-12)
+- [x] Gradient options presented; developer chose Graphite (monochrome) with dark as the default theme
+- [x] Design tokens and shared utilities in `index.css` (buttons, fields, surfaces, labels, stagger, brand gradient)
+- [x] Minimal restyle of every page and component (hairline rings instead of borders, one primary button per view)
+- [x] Transitions: page fade-up, staggered lists, sliding tab underline, chat slide-in, pop-in menus, smooth progress bars; `prefers-reduced-motion` respected
+- [x] Mermaid diagrams follow the theme; emoji icons replaced with SVG
+- [x] Tests (97 frontend incl. Mermaid contract for the recolouring), E2E, README screenshots re-shot

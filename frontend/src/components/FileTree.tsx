@@ -57,14 +57,29 @@ export function FileTree({ files, selectedPath, onSelect }: Props) {
             type="button"
             onClick={() => toggle(node.path)}
             style={indent}
-            className="flex w-full items-center gap-1 truncate rounded py-0.5 pr-2 text-left text-sm hover:bg-slate-200 dark:hover:bg-slate-800"
+            className="flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/[0.06]"
           >
-            <span aria-hidden="true" className="w-3 text-xs text-slate-400">
-              {expanded ? "▾" : "▸"}
-            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 ${
+                expanded ? "rotate-90" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m6 4 4 4-4 4" />
+            </svg>
             <span className="truncate">{node.name}</span>
           </button>
-          {expanded && <ul role="group">{node.children.map((c) => renderNode(c, depth + 1))}</ul>}
+          {expanded && (
+            <ul role="group" className="animate-fade-in">
+              {node.children.map((c) => renderNode(c, depth + 1))}
+            </ul>
+          )}
         </li>
       );
     }
@@ -76,13 +91,13 @@ export function FileTree({ files, selectedPath, onSelect }: Props) {
           onClick={() => onSelect(node.path)}
           style={indent}
           title={node.path}
-          className={`flex w-full items-center gap-1 truncate rounded py-0.5 pr-2 text-left font-mono text-[13px] ${
+          className={`flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left font-mono text-[13px] transition-colors duration-150 ${
             selected
-              ? "bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200"
-              : "hover:bg-slate-200 dark:hover:bg-slate-800"
+              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+              : "text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/[0.06]"
           }`}
         >
-          <span className="w-3" />
+          <span className="w-3 shrink-0" />
           <span className="truncate">{node.name}</span>
         </button>
       </li>
@@ -101,7 +116,7 @@ export function FileTree({ files, selectedPath, onSelect }: Props) {
           placeholder="Filter files…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="field py-1.5"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-1 pb-4">

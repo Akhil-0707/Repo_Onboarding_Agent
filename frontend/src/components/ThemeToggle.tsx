@@ -9,12 +9,13 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
-      className="rounded-md p-2 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800"
+      className="btn btn-ghost h-9 w-9 p-0"
     >
       {resolved === "dark" ? (
         <svg
+          key="sun"
           viewBox="0 0 24 24"
-          className="h-5 w-5"
+          className="animate-pop-in h-[18px] w-[18px]"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -25,8 +26,9 @@ export function ThemeToggle() {
         </svg>
       ) : (
         <svg
+          key="moon"
           viewBox="0 0 24 24"
-          className="h-5 w-5"
+          className="animate-pop-in h-[18px] w-[18px]"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
