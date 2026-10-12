@@ -92,7 +92,7 @@ export function OverviewSection({
               <li key={index} className="text-sm">
                 <p>{step.description}</p>
                 {step.command && (
-                  <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2.5 font-mono text-[13px] text-slate-100 ring-1 ring-white/[0.06] dark:bg-black/40">
+                  <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2.5 font-mono text-[13px] text-slate-100 ring-1 ring-white/[0.06] dark:bg-white/[0.04]">
                     <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre">
                       {step.command}
                     </code>

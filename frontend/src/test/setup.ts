@@ -28,3 +28,7 @@ if (!window.matchMedia) {
     }),
   });
 }
+
+// jsdom has no canvas: report "no 2D context" quietly instead of logging "not implemented".
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;

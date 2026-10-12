@@ -127,7 +127,7 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
           </button>
         )}
       </header>
-      <div className="min-h-0 flex-1 overflow-auto bg-white font-mono text-[13px] leading-6 dark:bg-slate-950">
+      <div className="min-h-0 flex-1 overflow-auto bg-white font-mono text-[13px] leading-6 dark:bg-black">
         <div className="min-w-max py-2">
           {lines.map((lineTokens, index) => {
             const number = index + 1;

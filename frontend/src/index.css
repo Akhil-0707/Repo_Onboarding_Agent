@@ -51,11 +51,25 @@
   --brand-from: #0f172a;
   --brand-to: #475569;
   --brand-on: #ffffff;
+  /* Cursor spotlight on surfaces: a faint fill plus a brighter edge. */
+  --spot-fill: rgb(15 23 42 / 0.045);
+  --spot-edge: rgb(15 23 42 / 0.28);
+  /* Live dot background and cursor trace (lib/dotField.ts): colour channels and opacities. */
+  --dots-rgb: 15 23 42;
+  --dots-alpha: 0.28;
+  --dots-line-alpha: 0.11;
+  --trail-alpha: 0.4;
 }
 .dark {
   --brand-from: #f8fafc;
   --brand-to: #94a3b8;
   --brand-on: #0f172a;
+  --spot-fill: rgb(255 255 255 / 0.06);
+  --spot-edge: rgb(255 255 255 / 0.32);
+  --dots-rgb: 203 213 225;
+  --dots-alpha: 0.42;
+  --dots-line-alpha: 0.13;
+  --trail-alpha: 0.55;
 }
 
 @layer base {
@@ -66,7 +80,7 @@
     color-scheme: dark;
   }
   body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-black dark:text-slate-100;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-slate-900 dark:outline-slate-100;
@@ -136,18 +150,66 @@
   @apply w-full rounded-[0.625rem] bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-900/10 transition-shadow duration-300 ring-inset placeholder:text-slate-400 hover:ring-slate-900/20 focus:ring-2 focus:ring-slate-900 focus:outline-none dark:bg-white/5 dark:ring-white/10 dark:placeholder:text-slate-500 dark:hover:ring-white/20 dark:focus:ring-slate-200;
 }
 
-/* Surfaces: hairline rings instead of borders; interactive ones lift slightly on hover. */
+/* Surfaces: hairline rings instead of borders; interactive ones lift slightly on hover.
+   A spotlight follows the cursor (position from lib/pointerEffects.ts): ::before lights the
+   fill behind the content, ::after lights the edge through a ring-shaped mask. */
 @utility surface {
   @apply rounded-2xl bg-white ring-1 ring-slate-900/[0.06] dark:bg-white/[0.03] dark:ring-white/[0.07];
+  position: relative;
+  isolation: isolate;
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 450ms ease-out;
+  }
+  &::before {
+    background: radial-gradient(
+      380px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      var(--spot-fill),
+      transparent 70%
+    );
+  }
+  &::after {
+    padding: 1px;
+    background: radial-gradient(
+      260px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      var(--spot-edge),
+      transparent 70%
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    &:hover::before,
+    &:hover::after {
+      opacity: 1;
+    }
+  }
 }
+/* Tilt and lift are eased per frame by lib/pointerEffects.ts (inline variables, no transform
+   transition while it drives the card); the :hover lift is the reduced-motion fallback. */
 @utility surface-hover {
+  --lift: 0px;
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    translateY(var(--lift));
   transition:
-    transform 300ms var(--ease-soft),
+    transform 450ms var(--ease-soft),
     box-shadow 300ms ease-out,
     background-color 300ms ease-out;
+  &[data-tilting] {
+    transition-property: box-shadow, background-color;
+    will-change: transform;
+  }
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px -12px rgb(15 23 42 / 0.18);
+    --lift: -3px;
+    box-shadow: 0 12px 32px -12px rgb(15 23 42 / 0.2);
   }
 }
 

@@ -137,3 +137,10 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Mermaid diagrams follow the theme; emoji icons replaced with SVG
 - [x] Tests (97 frontend incl. Mermaid contract for the recolouring), E2E, README screenshots re-shot
 - [x] Motion slowed ~1.5x on the developer's request (2026-10-12)
+
+## Cursor effects and live background — ✅ Completed (2026-10-12)
+- [x] Spotlight glow following the cursor on every surface (fill + edge)
+- [x] 3D tilt toward the cursor on clickable cards, eased per frame for smoothness
+- [x] Live background: drifting, linked dots pushed aside by the cursor; fading cursor trace
+- [x] Dots brightened; dark theme base changed to black
+- [x] Touch and reduced-motion fallbacks; tests (114 frontend); checked in the running app

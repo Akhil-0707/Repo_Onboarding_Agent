@@ -300,7 +300,7 @@ export function WorkspacePage() {
         {showTree && (
           <aside
             aria-label="File tree"
-            className="animate-fade-in w-72 shrink-0 overflow-auto border-r border-slate-900/[0.06] bg-slate-50 max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl dark:border-white/[0.06] dark:bg-slate-950"
+            className="animate-fade-in w-72 shrink-0 overflow-auto border-r border-slate-900/[0.06] bg-slate-50 max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl dark:border-white/[0.06] dark:bg-black"
           >
             {tree.isPending && <LoadingState label="Loading files" />}
             {tree.isError && (

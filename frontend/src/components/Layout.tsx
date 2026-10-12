@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 
+import { LiveBackground } from "./LiveBackground";
 import { ModelBanner } from "./ModelBanner";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
@@ -15,8 +16,9 @@ export function Layout() {
   const { pathname } = useLocation();
   return (
     <div className="flex h-dvh flex-col">
+      <LiveBackground />
       <ModelBanner />
-      <header className="z-20 shrink-0 border-b border-slate-900/[0.06] bg-slate-50/80 backdrop-blur-md dark:border-white/[0.06] dark:bg-slate-950/80">
+      <header className="z-20 shrink-0 border-b border-slate-900/[0.06] bg-slate-50/80 backdrop-blur-md dark:border-white/[0.06] dark:bg-black/70">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
           <NavLink to="/" className="group flex items-center gap-2.5 font-semibold tracking-tight">
             <span className="bg-brand flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold transition-transform duration-450 group-hover:-rotate-6">
