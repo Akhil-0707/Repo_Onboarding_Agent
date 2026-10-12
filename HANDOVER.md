@@ -3,23 +3,19 @@
 Living document. Update after every meaningful step. A fresh session should be able to continue from here alone.
 
 ## Current status
-- **Phase:** 9 complete. **All planned phases (1–9) are done.** Since then: real README screenshots, dev tooling, and the **Kaggle model server is verified working** (2026-10-03).
-- **Last commit:** see `git log -1`.
-- **Local stack model:** points at the **Kaggle vLLM server, `Qwen/Qwen3-8B`** (2× T4) through a cloudflared quick tunnel. The tunnel URL **changes every Kaggle session**: the last one was `https://fallen-covering-adelaide-portrait.trycloudflare.com/v1` and dies when the notebook stops.
-- **`.env`** (gitignored) holds `LLM_API_KEY` (= the Kaggle secret `VLLM_API_KEY`) and, since 2026-10-07, `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` of the developer's local OAuth App "RepoGuide (local)" (callback `http://localhost:5173/api/auth/github/callback`). Created by the developer; never print or commit it. All other settings use defaults.
-- **Real GitHub sign-in works locally** (2026-10-07): the developer signed in as `Akhil-0707`; their encrypted token is stored, so adding repositories uses their 5,000/h GitHub limit instead of the shared anonymous 60/h.
-- **Kaggle notebook:** version `2026-10-03.3` (printed by its install cell). Fixed today: Kaggle's preinstalled torchaudio (CUDA 12.8) broke vLLM 0.30.0's PyTorch (CUDA 13.0) → the install cell now removes every torchaudio copy, checks PyTorch runs on the GPUs (falls back to vLLM 0.18.1 if not), and verifies vLLM imports before starting the server.
-- **Qwen3-8B checks done:** chat and a full 5-section analysis of commander.js (comparison with 4B under Completed). The analysis run surfaced three output problems, fixed in the repair layer and re-applied to the stored output; README screenshots regenerated from the 8B output.
-- **Glossary prompt verified** on Qwen3-8B (2026-10-03): the re-run produced 8 real API terms with exact locations and no package-script names.
-- **Chat rate limit added** (2026-10-03): `RATE_LIMIT_CHAT_QUESTIONS`, default 30/hour per user; verified live (a real streamed answer counted 1 of 30).
-- **Celery dev auto-reload made real** (2026-10-03): `CELERY_RELOAD` was set in docker-compose but nothing read it. The worker/beat now run under watchfiles in dev; verified by editing a task file (worker and beat restarted). The running stack picks this up after `docker compose restart worker beat`.
-- **Production deployment** (2026-10-03): `docs/deployment.md`, `docker-compose.prod.yml`, `.env.production.example`, `config.settings.prod`. Verified by running the prod stack locally (port 8088, throwaway secrets, removed afterwards).
-- **Production CI job** (2026-10-07): builds the prod images, starts `docker-compose.prod.yml` with throwaway secrets and runs `scripts/prod-smoke-test.sh repoguide.test --sse` (12 checks). No open tasks.
+
+- **Phases 1–9 are done**, plus every follow-up below. Nothing is in progress and nothing is waiting on the developer. Last commit: see `git log -1` (at the time of writing `a224e9a`, the UI redesign; CI green).
+- **UI (2026-10-12): "Graphite" redesign.** Monochrome slate gradient chosen by the developer, **dark theme by default**, minimal surfaces, CSS-only transitions (reduced-motion aware), Mermaid diagrams recoloured client-side. README screenshots show the new design. Details: Key decisions (UI theme, Mermaid rows).
+- **Model:** the Kaggle vLLM server (`Qwen/Qwen3-8B`, 2× T4) through a cloudflared quick tunnel. The URL **changes every Kaggle session**; the last one was `https://extent-idea-polymer-remarkable.trycloudflare.com/v1` (2026-10-10) and is dead once the notebook stops. Kaggle notebook version `2026-10-03.3`.
+- **`.env`** (gitignored, created by the developer; never print or commit it) holds `LLM_API_KEY` (= Kaggle secret `VLLM_API_KEY`) and `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` of the developer's local OAuth App "RepoGuide (local)" (callback `http://localhost:5173/api/auth/github/callback`). Everything else uses defaults.
+- **Real GitHub sign-in works locally.** The developer is user `Akhil-0707`. Their first token was revoked on GitHub's side; they signed in again on 2026-10-10 (fresh token). A revoked token now produces a clear "sign out and sign in with GitHub again" error (403 `github_reauth_required`) instead of a misleading rate-limit message.
+- **Developer's own analyses** (last checked 2026-10-10, re-check after starting the stack): `Akhil-0707/Hybrid_RAG_Over_Minecraft-` done 5/5; `dhruv-deepak/f1-virtual-race-engineer` was finishing its last sections after a re-queue; `krishnaik06/Complete-Python-Bootcamp` **failed** (gave up after 48 h without a model): it only needs **Re-analyze** while the model is online.
+- **Since Phase 9, all verified for real:** Qwen3-8B chat and full analyses (repair fixes from those runs); chat rate limit (30/h); Celery dev auto-reload; 48 h give-up closes the analyze step properly; production deployment (`docs/deployment.md`, `docker-compose.prod.yml`, `config.settings.prod`) with a CI job that builds the prod images and runs `scripts/prod-smoke-test.sh`; CI sped up (~2 m 15 s → ~1 m 45 s; docs-only commits skip CI).
 
 ## ▶ Resume here (fresh session)
 1. Start Docker Desktop, then `docker compose up -d` (the stack reads `LLM_API_KEY` from `.env`).
 2. **Model server:** on Kaggle, open the RepoGuide notebook (GPU T4 x2, Internet on, secret `VLLM_API_KEY` attached) → Run All → copy the `Public URL: …trycloudflare.com/v1` line → `docker compose exec backend python manage.py set_llm_url <url>`. It should print `Model 'Qwen/Qwen3-8B' is online`. A fresh tunnel can refuse connections for ~1 minute; just re-run `set_llm_url`. Without Kaggle, use local Ollama instead: start the Ollama app, then `set_llm_url http://host.docker.internal:11434 --model qwen3:4b-instruct`.
-3. **Next task:** none planned; see "Later candidates" under Next steps. Useful recipes:
+3. **Next task:** none planned (see "Later candidates" under Next steps). If the developer asks, `krishnaik06/Complete-Python-Bootcamp` needs a Re-analyze once the model is online. Useful recipes:
    - Re-running one section: set `sections[key]["status"] = "pending"` on the repo's `Analysis`, then `apps.repos.services._enqueue_analysis_only(repo, user)` (it only re-runs sections that are not done).
    - Re-running a whole analysis: delete the repo's `Analysis`, then `_enqueue_analysis_only(repo, user)`; watch `docker compose logs -f worker`.
    - Repair changes can be re-applied to stored output without the model: `get_section(key).repair(data, load_file_index(ToolContext(repo)))`, then save `sections` (repairs are idempotent).
@@ -28,6 +24,9 @@ Living document. Update after every meaningful step. A fresh session should be a
    `MONGODB_URI="mongodb://repoguide:repoguide@localhost:27017/?directConnection=true&authSource=admin" .venv/Scripts/python -m pytest`.
 6. If `.venv/Scripts/black` says "Permission denied" (OneDrive/AV lock on the .exe), run `.venv/Scripts/python -m black` instead.
 7. In dev the worker and beat restart by themselves when a `.py` file under `backend/` changes (watchfiles; ~10 s). A restart kills a running analysis: re-run it after editing. If a run is interrupted, re-enqueue `analyze_repository` for the same job: it resumes from `Analysis.checkpoint`.
+8. **Before editing any backend `.py` file, check nothing is running** (`IngestionJob.objects.filter(status="running")`): the developer often analyses repos in the browser while you work, and the auto-reload kills that run (happened twice). Frontend-only edits are safe (Vite hot reload).
+9. **Frontend UI:** Graphite design tokens and shared utilities live in `frontend/src/index.css` (`btn`, `btn-primary|secondary|ghost`, `field`, `surface`, `surface-hover`, `eyebrow`, `stagger`, `bg-brand`, `text-brand`). Use them instead of raw colours so both themes stay consistent; keep one `btn-primary` per view.
+10. **README screenshots:** export a snapshot (`export_snapshot e2e-check tj/commander.js --out /tmp/s.json`, copy it out with `docker compose cp`), then run `SNAPSHOT=<file> npm run screenshots` in `frontend/`. Chromium on this machine randomly gets `ERR_NETWORK_ACCESS_DENIED`, so run the spec per test (`-g <name>`) with a few retries and look at the images before committing (see Gotchas).
 
 ## How to run
 
@@ -185,13 +184,16 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 - **Phase 1:** repo + tracking files; Django/Mongo scaffold; common layer (structlog redaction, request ids, error envelope, pagination); custom User; Celery + beat (LLM health probe); LLMClient (timeouts/retries/backoff/offline, streaming, tool-call assembly); runtime config + `set_llm_url` + admin; `/api/health` and `/api/llm/health`; fake OpenAI-compatible server and 35 backend tests; React shell (router, theme, model banner, API client, state views) with 23 tests; Docker Compose stack; Kaggle notebook/script/guide; CI (all green).
 
 ## Known issues / TODOs / blockers
-- vLLM 0.30.0 on Kaggle 2× T4 is **verified** (2026-10-03) once torchaudio is removed; the install cell falls back to 0.18.1 automatically if PyTorch cannot use the GPUs.
-- Phase 4 will add ML dependencies (sentence-transformers + CPU torch) to the backend image; keep the API image slim if possible (build arg).
+
+- **Local Chromium network flake** (since 2026-10-12): Playwright's Chromium randomly gets `net::ERR_NETWORK_ACCESS_DENIED` on `127.0.0.1` requests (also with the old UI and outside the command sandbox; `curl` is fine). Local E2E/screenshot runs need retries; CI is unaffected. The desktop app's built-in browser pane also refuses `localhost`, so verify UI changes with Playwright screenshots.
+- **GitHub's anonymous API limit is shared per public IP** (60/h) and other traffic on the developer's network can use it up. Signed-in users with a valid token are unaffected; a revoked token is reported as such.
+- The Kaggle tunnel URL changes every session and sessions end on their own; analyses wait up to 48 h for the model, then give up (Re-analyze resumes from the checkpoint).
 
 ## Next steps (after Phase 9)
-Done since Phase 9: real README screenshots, `login_link`, `export_snapshot`, smarter `set_llm_url`, flow-trace pick, idempotent architecture repair; `pallets/itsdangerous` analysed for real (5/5 sections).
+
+Done since Phase 9: real README screenshots; `login_link`, `export_snapshot`, smarter `set_llm_url`; Qwen3-8B analysis and chat verified with repair fixes; chat rate limit; Celery dev auto-reload; production deployment, prod smoke test and CI job; CI speed-up; clear GitHub re-sign-in error; 48 h give-up fix; Graphite UI redesign.
 Waiting on the developer: nothing.
-Later candidates: chat answers in dedicated workers if load grows.
+Later candidates: chat answers in dedicated workers if load grows; an always-on model server (the Kaggle tunnel is demo-grade, see `docs/deployment.md`).
 
 ## Known follow-ups (later phases)
 - **Dev GitHub rate limit:** unauthenticated API calls (test users without a GitHub token) share 60 req/h per IP. Real users resolve with their OAuth token. Consider an optional server `GITHUB_API_TOKEN` fallback for `seed_demo` (Phase 9).
