@@ -229,7 +229,7 @@ export function ChatPanel({
                       type="button"
                       disabled={offline}
                       onClick={() => void send(question)}
-                      className="w-full rounded-xl text-left bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-200 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
+                      className="w-full rounded-xl text-left bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       {question}
                     </button>

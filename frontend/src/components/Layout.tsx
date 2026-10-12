@@ -5,7 +5,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${
+  `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-300 ${
     isActive
       ? "bg-slate-900/[0.06] text-slate-900 dark:bg-white/10 dark:text-white"
       : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -19,7 +19,7 @@ export function Layout() {
       <header className="z-20 shrink-0 border-b border-slate-900/[0.06] bg-slate-50/80 backdrop-blur-md dark:border-white/[0.06] dark:bg-slate-950/80">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
           <NavLink to="/" className="group flex items-center gap-2.5 font-semibold tracking-tight">
-            <span className="bg-brand flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold transition-transform duration-300 group-hover:-rotate-6">
+            <span className="bg-brand flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold transition-transform duration-450 group-hover:-rotate-6">
               R
             </span>
             <span>RepoGuide</span>

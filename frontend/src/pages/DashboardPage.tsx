@@ -108,7 +108,7 @@ function RepoCard({ repo }: { repo: Repository }) {
               remove.mutate(repo.id);
             }
           }}
-          className="rounded-md px-1.5 py-0.5 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400"
+          className="rounded-md px-1.5 py-0.5 transition-colors duration-300 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400"
         >
           Remove
         </button>

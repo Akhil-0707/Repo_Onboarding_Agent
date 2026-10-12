@@ -38,7 +38,7 @@ export function AuthCallbackPage() {
         <ErrorState title="Sign-in failed" message={error} />
         <Link
           to="/login"
-          className="mt-4 inline-block text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-200 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
+          className="mt-4 inline-block text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-300 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
         >
           Try again
         </Link>

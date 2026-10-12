@@ -136,3 +136,4 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Transitions: page fade-up, staggered lists, sliding tab underline, chat slide-in, pop-in menus, smooth progress bars; `prefers-reduced-motion` respected
 - [x] Mermaid diagrams follow the theme; emoji icons replaced with SVG
 - [x] Tests (97 frontend incl. Mermaid contract for the recolouring), E2E, README screenshots re-shot
+- [x] Motion slowed ~1.5x on the developer's request (2026-10-12)

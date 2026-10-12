@@ -36,7 +36,7 @@ function StepRow({ step }: { step: JobStep }) {
         type="button"
         onClick={() => setToggled(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.02]"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.02]"
       >
         <span
           aria-hidden="true"
@@ -106,7 +106,7 @@ export function IngestionPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Link
         to="/dashboard"
-        className="text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+        className="text-sm text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
       >
         ← Dashboard
       </Link>

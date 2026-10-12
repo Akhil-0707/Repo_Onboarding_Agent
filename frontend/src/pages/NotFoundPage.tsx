@@ -11,7 +11,7 @@ export function NotFoundPage() {
         action={
           <Link
             to="/"
-            className="text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-200 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
+            className="text-slate-900 underline decoration-slate-300 underline-offset-4 transition-colors duration-300 hover:decoration-slate-900 dark:text-white dark:decoration-slate-600 dark:hover:decoration-white"
           >
             Go home
           </Link>

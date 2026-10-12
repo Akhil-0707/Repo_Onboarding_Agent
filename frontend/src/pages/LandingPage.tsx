@@ -26,14 +26,14 @@ export function LandingPage() {
       <h1 className="animate-fade-up text-4xl font-semibold tracking-tight sm:text-6xl">
         Understand any codebase <span className="text-brand">in minutes</span>
       </h1>
-      <p className="animate-fade-up mt-5 max-w-xl text-lg text-slate-600 [animation-delay:80ms] dark:text-slate-400">
+      <p className="animate-fade-up mt-5 max-w-xl text-lg text-slate-600 [animation-delay:120ms] dark:text-slate-400">
         Paste a GitHub repository. RepoGuide maps its architecture, picks the files to read first,
         walks you through the code, and answers questions with citations.
       </p>
 
       <form
         onSubmit={submit}
-        className="animate-fade-up mt-10 flex w-full flex-col gap-3 [animation-delay:160ms] sm:flex-row"
+        className="animate-fade-up mt-10 flex w-full flex-col gap-3 [animation-delay:240ms] sm:flex-row"
         noValidate
       >
         <label htmlFor="repo-url" className="sr-only">
@@ -66,7 +66,7 @@ export function LandingPage() {
       )}
 
       <section
-        className="animate-fade-up mt-16 w-full text-left [animation-delay:240ms]"
+        className="animate-fade-up mt-16 w-full text-left [animation-delay:360ms]"
         aria-labelledby="examples-heading"
       >
         <h2 id="examples-heading" className="eyebrow">

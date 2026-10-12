@@ -97,7 +97,7 @@ export function MermaidDiagram({
       role="img"
       aria-label={label}
       onClick={onClick}
-      className="animate-fade-in overflow-auto [&_g.node]:cursor-pointer [&_g.node]:transition-opacity [&_g.node]:duration-200 [&_g.node:hover]:opacity-80 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
+      className="animate-fade-in overflow-auto [&_g.node]:cursor-pointer [&_g.node]:transition-opacity [&_g.node]:duration-300 [&_g.node:hover]:opacity-80 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
       dangerouslySetInnerHTML={{ __html: current.svg }}
     />
   );

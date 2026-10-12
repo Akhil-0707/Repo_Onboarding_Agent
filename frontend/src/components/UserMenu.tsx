@@ -41,7 +41,7 @@ export function UserMenu() {
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-full p-0.5 ring-slate-900/10 transition-shadow duration-200 hover:ring-4 dark:ring-white/15"
+        className="flex items-center gap-2 rounded-full p-0.5 ring-slate-900/10 transition-shadow duration-300 hover:ring-4 dark:ring-white/15"
       >
         {user.avatar_url ? (
           <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full" />
@@ -62,7 +62,7 @@ export function UserMenu() {
             role="menuitem"
             to="/settings"
             onClick={() => setOpen(false)}
-            className="block rounded-lg px-3 py-2 text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/10"
+            className="block rounded-lg px-3 py-2 text-sm transition-colors duration-200 hover:bg-slate-900/5 dark:hover:bg-white/10"
           >
             Settings
           </Link>
@@ -74,7 +74,7 @@ export function UserMenu() {
               await logout();
               navigate("/");
             }}
-            className="block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/10"
+            className="block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-slate-900/5 dark:hover:bg-white/10"
           >
             Sign out
           </button>

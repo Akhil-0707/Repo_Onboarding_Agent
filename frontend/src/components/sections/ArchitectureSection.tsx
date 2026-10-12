@@ -75,7 +75,7 @@ export function ArchitectureSection({
               key={module.id}
               id={`module-${module.id}`}
               aria-current={selected === module.id || undefined}
-              className={`surface p-4 transition-shadow duration-300 ${
+              className={`surface p-4 transition-shadow duration-450 ${
                 selected === module.id ? "ring-2 ring-slate-900 dark:ring-slate-100" : ""
               }`}
             >

@@ -7,13 +7,13 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
-  /* Motion: one soft ease-out curve; durations stay in the 150-350 ms range. */
+  /* Motion: one soft ease-out curve; durations stay in the 200-500 ms range. */
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-page-in: page-in 280ms var(--ease-soft) both;
-  --animate-fade-up: fade-up 320ms var(--ease-soft) both;
-  --animate-fade-in: fade-in 220ms ease-out both;
-  --animate-slide-in-right: slide-in-right 300ms var(--ease-soft) both;
-  --animate-pop-in: pop-in 160ms var(--ease-soft) both;
+  --animate-page-in: page-in 420ms var(--ease-soft) both;
+  --animate-fade-up: fade-up 480ms var(--ease-soft) both;
+  --animate-fade-in: fade-in 320ms ease-out both;
+  --animate-slide-in-right: slide-in-right 450ms var(--ease-soft) both;
+  --animate-pop-in: pop-in 220ms var(--ease-soft) both;
 
   @keyframes page-in {
     from {
@@ -102,11 +102,11 @@
   white-space: nowrap;
   cursor: pointer;
   transition:
-    transform 150ms var(--ease-soft),
-    opacity 200ms ease-out,
-    background-color 200ms ease-out,
-    color 200ms ease-out,
-    box-shadow 200ms ease-out;
+    transform 200ms var(--ease-soft),
+    opacity 300ms ease-out,
+    background-color 300ms ease-out,
+    color 300ms ease-out,
+    box-shadow 300ms ease-out;
   &:active:not(:disabled) {
     transform: scale(0.97);
   }
@@ -133,7 +133,7 @@
 
 /* Text inputs: borderless fill with a ring that sharpens on focus. */
 @utility field {
-  @apply w-full rounded-[0.625rem] bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-900/10 transition-shadow duration-200 ring-inset placeholder:text-slate-400 hover:ring-slate-900/20 focus:ring-2 focus:ring-slate-900 focus:outline-none dark:bg-white/5 dark:ring-white/10 dark:placeholder:text-slate-500 dark:hover:ring-white/20 dark:focus:ring-slate-200;
+  @apply w-full rounded-[0.625rem] bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-900/10 transition-shadow duration-300 ring-inset placeholder:text-slate-400 hover:ring-slate-900/20 focus:ring-2 focus:ring-slate-900 focus:outline-none dark:bg-white/5 dark:ring-white/10 dark:placeholder:text-slate-500 dark:hover:ring-white/20 dark:focus:ring-slate-200;
 }
 
 /* Surfaces: hairline rings instead of borders; interactive ones lift slightly on hover. */
@@ -142,9 +142,9 @@
 }
 @utility surface-hover {
   transition:
-    transform 200ms var(--ease-soft),
-    box-shadow 200ms ease-out,
-    background-color 200ms ease-out;
+    transform 300ms var(--ease-soft),
+    box-shadow 300ms ease-out,
+    background-color 300ms ease-out;
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 30px -12px rgb(15 23 42 / 0.18);
@@ -154,37 +154,37 @@
 /* Children fade up one after another (first ten staggered, the rest together). */
 @utility stagger {
   & > * {
-    animation: fade-up 320ms var(--ease-soft) both;
+    animation: fade-up 480ms var(--ease-soft) both;
   }
   & > :nth-child(2) {
-    animation-delay: 45ms;
+    animation-delay: 65ms;
   }
   & > :nth-child(3) {
-    animation-delay: 90ms;
+    animation-delay: 130ms;
   }
   & > :nth-child(4) {
-    animation-delay: 135ms;
+    animation-delay: 195ms;
   }
   & > :nth-child(5) {
-    animation-delay: 180ms;
+    animation-delay: 260ms;
   }
   & > :nth-child(6) {
-    animation-delay: 225ms;
+    animation-delay: 325ms;
   }
   & > :nth-child(7) {
-    animation-delay: 270ms;
+    animation-delay: 390ms;
   }
   & > :nth-child(8) {
-    animation-delay: 315ms;
+    animation-delay: 455ms;
   }
   & > :nth-child(9) {
-    animation-delay: 360ms;
+    animation-delay: 520ms;
   }
   & > :nth-child(10) {
-    animation-delay: 405ms;
+    animation-delay: 585ms;
   }
   & > :nth-child(n + 11) {
-    animation-delay: 450ms;
+    animation-delay: 650ms;
   }
 }
 

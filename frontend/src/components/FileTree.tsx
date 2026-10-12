@@ -57,12 +57,12 @@ export function FileTree({ files, selectedPath, onSelect }: Props) {
             type="button"
             onClick={() => toggle(node.path)}
             style={indent}
-            className="flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left text-sm transition-colors duration-150 hover:bg-slate-900/5 dark:hover:bg-white/[0.06]"
+            className="flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left text-sm transition-colors duration-200 hover:bg-slate-900/5 dark:hover:bg-white/[0.06]"
           >
             <svg
               aria-hidden="true"
               viewBox="0 0 16 16"
-              className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 ${
+              className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-300 ${
                 expanded ? "rotate-90" : ""
               }`}
               fill="none"
@@ -91,7 +91,7 @@ export function FileTree({ files, selectedPath, onSelect }: Props) {
           onClick={() => onSelect(node.path)}
           style={indent}
           title={node.path}
-          className={`flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left font-mono text-[13px] transition-colors duration-150 ${
+          className={`flex w-full items-center gap-1.5 truncate rounded-md py-1 pr-2 text-left font-mono text-[13px] transition-colors duration-200 ${
             selected
               ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
               : "text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/[0.06]"

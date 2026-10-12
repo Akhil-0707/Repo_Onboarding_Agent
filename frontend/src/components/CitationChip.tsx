@@ -17,7 +17,7 @@ export function CitationChip({
       onClick={() => onOpen(reference)}
       disabled={isDir}
       title={isDir ? reference.path : `Open ${label}`}
-      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md bg-slate-900/[0.05] px-1.5 py-0.5 align-middle font-mono text-xs text-slate-800 ring-1 ring-slate-900/[0.06] transition-colors duration-150 hover:bg-slate-900/10 hover:text-slate-950 disabled:cursor-default disabled:text-slate-600 disabled:hover:bg-slate-900/[0.05] dark:bg-white/[0.06] dark:text-slate-200 dark:ring-white/[0.08] dark:hover:bg-white/[0.12] dark:hover:text-white dark:disabled:text-slate-400 dark:disabled:hover:bg-white/[0.06]"
+      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md bg-slate-900/[0.05] px-1.5 py-0.5 align-middle font-mono text-xs text-slate-800 ring-1 ring-slate-900/[0.06] transition-colors duration-200 hover:bg-slate-900/10 hover:text-slate-950 disabled:cursor-default disabled:text-slate-600 disabled:hover:bg-slate-900/[0.05] dark:bg-white/[0.06] dark:text-slate-200 dark:ring-white/[0.08] dark:hover:bg-white/[0.12] dark:hover:text-white dark:disabled:text-slate-400 dark:disabled:hover:bg-white/[0.06]"
     >
       <svg
         aria-hidden="true"

@@ -54,7 +54,7 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
         <div className="flex items-center gap-3 text-sm">
           <Link
             to={`/repos/${repoId}?tab=tour`}
-            className="text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            className="text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           >
             ← Back to workspace
           </Link>
@@ -136,7 +136,7 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
                     type="button"
                     onClick={() => go(i)}
                     aria-current={i === index ? "step" : undefined}
-                    className={`w-full rounded-lg px-2.5 py-1.5 text-left transition-colors duration-200 ${
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-left transition-colors duration-300 ${
                       i === index
                         ? "bg-slate-900/[0.06] font-medium text-slate-900 dark:bg-white/10 dark:text-white"
                         : "text-slate-500 hover:bg-slate-900/[0.04] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-white"
@@ -183,7 +183,7 @@ export function TourPage() {
       {analysis.data.sections.tour.status !== "done" && (
         <Link
           to={`/repos/${repoId}?tab=tour`}
-          className="block px-6 pt-4 text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          className="block px-6 pt-4 text-sm text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           ← Back to workspace
         </Link>

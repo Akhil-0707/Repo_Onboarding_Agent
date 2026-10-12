@@ -43,7 +43,7 @@ function Stat({
   return (
     <div
       className="animate-fade-up rounded-xl bg-slate-900/[0.03] p-4 dark:bg-white/[0.04]"
-      style={{ animationDelay: `${index * 50}ms` }}
+      style={{ animationDelay: `${index * 75}ms` }}
     >
       <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
       <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
@@ -84,7 +84,7 @@ function TabBar({ active, onSelect }: { active: TabKey; onSelect: (key: TabKey) 
           type="button"
           aria-selected={active === item.key}
           onClick={() => onSelect(item.key)}
-          className={`px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors duration-200 ${
+          className={`px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors duration-300 ${
             active === item.key
               ? "text-slate-900 dark:text-white"
               : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -96,7 +96,7 @@ function TabBar({ active, onSelect }: { active: TabKey; onSelect: (key: TabKey) 
       {indicator && (
         <span
           aria-hidden="true"
-          className="bg-brand absolute bottom-0 left-0 h-0.5 rounded-full transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="bg-brand absolute bottom-0 left-0 h-0.5 rounded-full transition-[transform,width] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{ width: indicator.width, transform: `translateX(${indicator.left}px)` }}
         />
       )}
@@ -215,7 +215,7 @@ export function WorkspacePage() {
         </button>
         <Link
           to="/dashboard"
-          className="text-sm text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          className="text-sm text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           Dashboard
         </Link>
@@ -225,7 +225,7 @@ export function WorkspacePage() {
           href={`${repo.data.url}/tree/${repo.data.commit_sha}`}
           target="_blank"
           rel="noreferrer"
-          className="font-mono text-xs text-slate-500 transition-colors duration-200 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          className="font-mono text-xs text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         >
           @{repo.data.commit_sha.slice(0, 7)}
         </a>

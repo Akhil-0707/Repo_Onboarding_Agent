@@ -18,7 +18,7 @@ function CopyButton({ text }: { text: string }) {
           // clipboard unavailable (insecure context)
         }
       }}
-      className="shrink-0 rounded-md px-2 py-0.5 text-xs text-slate-400 transition-colors duration-150 hover:bg-white/10 hover:text-white"
+      className="shrink-0 rounded-md px-2 py-0.5 text-xs text-slate-400 transition-colors duration-200 hover:bg-white/10 hover:text-white"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -53,7 +53,7 @@ export function OverviewSection({
           {data.tech_stack.map((item) => (
             <li
               key={item.name}
-              className="rounded-xl bg-slate-900/[0.03] p-4 transition-colors duration-200 hover:bg-slate-900/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+              className="rounded-xl bg-slate-900/[0.03] p-4 transition-colors duration-300 hover:bg-slate-900/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
             >
               <p className="font-medium">{item.name}</p>
               <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{item.role}</p>
@@ -135,7 +135,7 @@ export function OverviewSection({
                   type="button"
                   disabled={!onAsk}
                   onClick={() => onAsk?.(question)}
-                  className="rounded-full bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-200 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
+                  className="rounded-full bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
                 >
                   {question}
                 </button>
