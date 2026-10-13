@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 
 import { LiveBackground } from "./LiveBackground";
 import { ModelBanner } from "./ModelBanner";
+import { SoundToggle } from "./SoundToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 
@@ -39,6 +40,7 @@ export function Layout() {
             </NavLink>
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <SoundToggle />
             <ThemeToggle />
             <UserMenu />
           </div>

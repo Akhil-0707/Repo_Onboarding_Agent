@@ -160,3 +160,8 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Fresh snapshot of commander.js (Qwen3-8B) replayed in the real UI; all six images re-shot and checked
 - [x] Screenshot spec: reduced motion (no cursor effects in the shots), dashboard limited to fully analysed repos
 - [x] Fixed: architecture diagrams laid out ~10x too large with reduced motion (CSS reset skips SVG) + E2E regression test
+
+## UI sounds — ✅ Completed (2026-10-13)
+- [x] Web Audio sound engine (no audio files): click ticks for tabs, cards and controls; card hover tone; cursor-trail whoosh
+- [x] Starts after the first user gesture; mute toggle in the header, remembered per browser
+- [x] Tests (132 frontend) + checked in a real browser
