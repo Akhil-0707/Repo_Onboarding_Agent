@@ -138,14 +138,16 @@ export function CodeViewer({ repoId, path, range, onClose, onRangeChange }: Prop
                 ref={highlighted && number === range?.start ? firstHighlighted : undefined}
                 data-line={number}
                 data-highlighted={highlighted || undefined}
-                className={`flex ${highlighted ? "bg-amber-100 dark:bg-amber-400/15" : ""}`}
+                className={`flex ${highlighted ? "bg-slate-900/[0.05] dark:bg-white/[0.07]" : ""}`}
               >
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => onRangeChange?.({ start: number, end: number })}
                   className={`w-12 shrink-0 select-none pr-3 text-right text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 ${
-                    highlighted ? "border-l-2 border-amber-500" : "border-l-2 border-transparent"
+                    highlighted
+                      ? "border-l-2 border-slate-900 text-slate-700 dark:border-slate-200 dark:text-slate-200"
+                      : "border-l-2 border-transparent"
                   }`}
                 >
                   {number}

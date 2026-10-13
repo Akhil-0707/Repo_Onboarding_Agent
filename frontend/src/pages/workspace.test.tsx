@@ -107,6 +107,39 @@ function renderWorkspace(path = "/repos/repo1") {
 }
 
 describe("WorkspacePage", () => {
+  it("keeps the file drawer closed on small screens and closes it after picking a file", async () => {
+    mockBackend();
+    const { router } = renderWorkspace();
+
+    expect(await screen.findByText(/tiny Flask service/)).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "File tree" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show files" }));
+    const tree = await screen.findByRole("complementary", { name: "File tree" });
+    await userEvent.click(await within(tree).findByRole("button", { name: /README\.md/ }));
+
+    expect(router.state.location.search).toContain("file=README.md");
+    expect(screen.queryByRole("complementary", { name: "File tree" })).not.toBeInTheDocument();
+  });
+
+  it("shows the file tree beside the content on wide screens", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes("min-width"),
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList,
+    );
+    mockBackend();
+    renderWorkspace();
+
+    const tree = await screen.findByRole("complementary", { name: "File tree" });
+    await userEvent.click(await within(tree).findByRole("button", { name: /README\.md/ }));
+    expect(screen.getByRole("complementary", { name: "File tree" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide files" })).toBeInTheDocument();
+  });
+
   it("shows the AI overview and opens cited lines in the code viewer", async () => {
     mockBackend();
     const { router } = renderWorkspace();
@@ -287,7 +320,44 @@ describe("SectionShell", () => {
       </SectionShell>,
     );
     expect(await screen.findByText("Glossary could not be generated")).toBeInTheDocument();
-    expect(screen.getByText("Model returned junk")).toBeInTheDocument();
+    expect(screen.getByText(/Model returned junk/)).toBeInTheDocument();
+  });
+
+  it("explains a section the analysis never wrote and offers Re-analyze", async () => {
+    const onReanalyze = vi.fn();
+    renderWithProviders(
+      <SectionShell
+        title="Overview"
+        section={undefined}
+        analysisStatus="failed"
+        analysisError="Gave up after 48 hours without a model."
+        onReanalyze={onReanalyze}
+      >
+        {() => null}
+      </SectionShell>,
+    );
+    expect(
+      await screen.findByText("The AI analysis stopped before writing the overview"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Gave up after 48 hours/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Re-analyze" }));
+    expect(onReanalyze).toHaveBeenCalledOnce();
+  });
+
+  it("hides Re-analyze while one is already being checked", async () => {
+    renderWithProviders(
+      <SectionShell
+        title="Tour"
+        section={{ status: "failed", error: "", updated_at: null, data: null }}
+        analysisStatus="partial"
+        onReanalyze={() => undefined}
+        reanalyzing
+      >
+        {() => null}
+      </SectionShell>,
+    );
+    expect(await screen.findByText("Tour could not be generated")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Re-analyze" })).not.toBeInTheDocument();
   });
 
   it("shows progress while the section is being written", async () => {

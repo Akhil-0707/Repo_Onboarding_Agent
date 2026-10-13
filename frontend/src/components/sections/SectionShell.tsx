@@ -1,30 +1,43 @@
 import type { ReactNode } from "react";
 
 import type { AnalysisStatus, SectionState } from "../../api/types";
-import { EmptyState, ErrorState, Skeleton } from "../StateViews";
+import { ErrorState, Skeleton } from "../StateViews";
 
 /** Shared loading / waiting / failed / empty handling for every AI-generated section. */
 export function SectionShell<T>({
   title,
   section,
   analysisStatus,
+  analysisError,
+  onReanalyze,
+  reanalyzing = false,
   children,
 }: {
   title: string;
   section: SectionState<T> | undefined;
   analysisStatus: AnalysisStatus | undefined;
+  /** Why the whole analysis stopped, shown when this section never got written. */
+  analysisError?: string;
+  /** Retries the unfinished sections (Re-analyze). */
+  onReanalyze?: () => void;
+  reanalyzing?: boolean;
   children: (data: T) => ReactNode;
 }) {
+  const retry = onReanalyze && !reanalyzing ? onReanalyze : undefined;
   if (section?.status === "done" && section.data) {
     return <>{children(section.data)}</>;
   }
   if (section?.status === "failed") {
     return (
       <div className="p-6">
-        <ErrorState
-          title={`${title} could not be generated`}
-          message={section.error || "The model did not return usable output."}
-        />
+        <div className="mx-auto max-w-3xl">
+          <ErrorState
+            title={`${title} could not be generated`}
+            message={`${section.error || "The model did not return usable output."} Re-analyze retries only the sections that did not finish.`}
+            onRetry={retry}
+            retryLabel="Re-analyze"
+          />
+        </div>
       </div>
     );
   }
@@ -47,7 +60,14 @@ export function SectionShell<T>({
   if (analysisStatus === "failed" || analysisStatus === "done" || analysisStatus === "partial") {
     return (
       <div className="p-6">
-        <EmptyState title={`No ${title.toLowerCase()} yet`} />
+        <div className="mx-auto max-w-3xl">
+          <ErrorState
+            title={`The AI analysis stopped before writing the ${title.toLowerCase()}`}
+            message={`${analysisError || "No reason was recorded."} Re-analyze retries only the sections that did not finish.`}
+            onRetry={retry}
+            retryLabel="Re-analyze"
+          />
+        </div>
       </div>
     );
   }

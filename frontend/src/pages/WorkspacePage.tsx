@@ -31,6 +31,11 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/** Side panels sit next to the content from `lg` up; below that they overlay it. */
+function isWide(): boolean {
+  return window.matchMedia?.("(min-width: 1024px)").matches ?? true;
+}
+
 function Stat({
   label,
   value,
@@ -42,7 +47,7 @@ function Stat({
 }) {
   return (
     <div
-      className="animate-fade-up rounded-xl bg-slate-900/[0.03] p-4 dark:bg-white/[0.04]"
+      className="animate-fade-up rounded-xl bg-white p-4 ring-1 ring-slate-900/[0.06] dark:bg-neutral-950 dark:ring-white/[0.08]"
       style={{ animationDelay: `${index * 75}ms` }}
     >
       <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
@@ -50,6 +55,22 @@ function Stat({
         {value?.toLocaleString() ?? "—"}
       </dd>
     </div>
+  );
+}
+
+function SidebarIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-[18px] w-[18px]"
+      aria-hidden="true"
+    >
+      <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="2.25" />
+      <path d="M7.5 3.75v12.5" />
+    </svg>
   );
 }
 
@@ -161,7 +182,7 @@ export function WorkspacePage() {
   const reanalyze = useReanalyze(repoId);
   const navigate = useNavigate();
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
-  const [showTree, setShowTree] = useState(true);
+  const [showTree, setShowTree] = useState(isWide);
   const [chatOpen, setChatOpen] = useState(false);
   // A starter question clicked outside the chat: (re)mount the panel and ask it.
   const [chatRequest, setChatRequest] = useState<{ text: string; nonce: number } | null>(null);
@@ -192,6 +213,39 @@ export function WorkspacePage() {
     );
   };
 
+  const sectionProps = {
+    analysisStatus: analysis.data?.status,
+    analysisError: analysis.data?.error,
+    onReanalyze: () => runReanalyze(),
+    reanalyzing: reanalyze.isPending,
+  };
+  const runReanalyze = () => {
+    setNotice(null);
+    reanalyze.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.repository.id !== repoId) {
+          // A newer commit: open its snapshot (or its progress if work started).
+          void navigate(
+            result.created
+              ? `/repos/${result.repository.id}/progress`
+              : `/repos/${result.repository.id}`,
+          );
+        } else if (result.created) {
+          setNotice({
+            error: false,
+            text: "Re-running the AI sections that did not finish…",
+          });
+        } else {
+          setNotice({
+            error: false,
+            text: "Already up to date: this is the latest commit and every section is done.",
+          });
+        }
+      },
+      onError: (error) => setNotice({ error: true, text: error.message }),
+    });
+  };
+
   if (repo.isPending) return <LoadingState label="Loading repository" />;
   if (repo.isError) {
     return (
@@ -204,64 +258,44 @@ export function WorkspacePage() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 border-b border-slate-900/[0.06] px-4 py-2 dark:border-white/[0.06]">
+      <div className="flex h-12 items-center gap-2 border-b border-slate-900/[0.06] px-3 sm:gap-3 sm:px-4 dark:border-white/[0.06]">
         <button
           type="button"
           onClick={() => setShowTree((value) => !value)}
           aria-pressed={showTree}
-          className="btn btn-ghost px-2.5 py-1.5"
+          aria-label={showTree ? "Hide files" : "Show files"}
+          title={showTree ? "Hide files" : "Show files"}
+          className="btn btn-ghost h-8 w-8 shrink-0 p-0"
         >
-          {showTree ? "Hide files" : "Files"}
+          <SidebarIcon />
         </button>
         <Link
           to="/dashboard"
-          className="text-sm text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          className="text-sm text-slate-500 transition-colors duration-300 hover:text-slate-900 max-sm:hidden dark:text-slate-400 dark:hover:text-white"
         >
           Dashboard
         </Link>
-        <span className="text-slate-300 dark:text-slate-700">/</span>
-        <h1 className="truncate font-mono text-sm font-semibold">{repo.data.full_name}</h1>
+        <span className="text-slate-300 max-sm:hidden dark:text-slate-700">/</span>
+        <h1 className="min-w-0 truncate font-mono text-sm font-semibold">{repo.data.full_name}</h1>
         <a
           href={`${repo.data.url}/tree/${repo.data.commit_sha}`}
           target="_blank"
           rel="noreferrer"
-          className="font-mono text-xs text-slate-500 transition-colors duration-300 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          className="font-mono text-xs text-slate-500 transition-colors duration-300 hover:text-slate-900 max-md:hidden dark:text-slate-400 dark:hover:text-white"
         >
           @{repo.data.commit_sha.slice(0, 7)}
         </a>
         {analysis.data && analysis.data.status !== "done" && (
-          <StatusBadge status={analysis.data.status} />
+          <span className="shrink-0 max-sm:hidden">
+            <StatusBadge status={analysis.data.status} />
+          </span>
         )}
         <button
           type="button"
           disabled={reanalyze.isPending}
-          onClick={() => {
-            setNotice(null);
-            reanalyze.mutate(undefined, {
-              onSuccess: (result) => {
-                if (result.repository.id !== repoId) {
-                  // A newer commit: open its snapshot (or its progress if work started).
-                  void navigate(
-                    result.created
-                      ? `/repos/${result.repository.id}/progress`
-                      : `/repos/${result.repository.id}`,
-                  );
-                } else if (result.created) {
-                  setNotice({
-                    error: false,
-                    text: "Re-running the AI sections that did not finish…",
-                  });
-                } else {
-                  setNotice({
-                    error: false,
-                    text: "Already up to date: this is the latest commit and every section is done.",
-                  });
-                }
-              },
-              onError: (error) => setNotice({ error: true, text: error.message }),
-            });
-          }}
-          className="btn btn-ghost ml-auto px-3 py-1.5"
+          onClick={runReanalyze}
+          title="Re-run the AI sections that did not finish, or analyze a newer commit"
+          className="btn btn-ghost ml-auto shrink-0 px-3 py-1.5"
         >
           {reanalyze.isPending ? "Checking…" : "Re-analyze"}
         </button>
@@ -269,9 +303,16 @@ export function WorkspacePage() {
           type="button"
           onClick={() => setChatOpen((value) => !value)}
           aria-pressed={chatOpen}
-          className={`btn px-3 py-1.5 ${chatOpen ? "btn-secondary" : "btn-primary"}`}
+          className={`btn shrink-0 px-3 py-1.5 ${chatOpen ? "btn-secondary" : "btn-primary"}`}
         >
-          {chatOpen ? "Close chat" : "Ask a question"}
+          {chatOpen ? (
+            "Close chat"
+          ) : (
+            // One flex item, so the button's gap doesn't widen the space; phones show "Ask".
+            <span>
+              Ask<span className="max-sm:hidden"> a question</span>
+            </span>
+          )}
         </button>
       </div>
 
@@ -312,7 +353,10 @@ export function WorkspacePage() {
               <FileTree
                 files={tree.data.files}
                 selectedPath={filePath}
-                onSelect={(path) => openFile(path)}
+                onSelect={(path) => {
+                  openFile(path);
+                  if (!isWide()) setShowTree(false);
+                }}
               />
             )}
           </aside>
@@ -340,7 +384,7 @@ export function WorkspacePage() {
                     <SectionShell
                       title="Overview"
                       section={analysis.data?.sections.overview}
-                      analysisStatus={analysis.data?.status}
+                      {...sectionProps}
                     >
                       {(data) => <OverviewSection data={data} onOpen={openRef} onAsk={askInChat} />}
                     </SectionShell>
@@ -351,7 +395,7 @@ export function WorkspacePage() {
                   <SectionShell
                     title="Start Here"
                     section={analysis.data?.sections.start_here}
-                    analysisStatus={analysis.data?.status}
+                    {...sectionProps}
                   >
                     {(data) => <StartHereSection data={data} onOpen={openRef} />}
                   </SectionShell>
@@ -360,7 +404,7 @@ export function WorkspacePage() {
                   <SectionShell
                     title="Glossary"
                     section={analysis.data?.sections.glossary}
-                    analysisStatus={analysis.data?.status}
+                    {...sectionProps}
                   >
                     {(data) => <GlossarySection data={data} onOpen={openRef} />}
                   </SectionShell>
@@ -369,7 +413,7 @@ export function WorkspacePage() {
                   <SectionShell
                     title="Architecture"
                     section={analysis.data?.sections.architecture}
-                    analysisStatus={analysis.data?.status}
+                    {...sectionProps}
                   >
                     {(data) => <ArchitectureSection data={data} onOpen={openRef} />}
                   </SectionShell>
@@ -378,7 +422,7 @@ export function WorkspacePage() {
                   <SectionShell
                     title="Guided Tour"
                     section={analysis.data?.sections.tour}
-                    analysisStatus={analysis.data?.status}
+                    {...sectionProps}
                   >
                     {(data) => <TourSection repoId={repoId} data={data} onOpen={openRef} />}
                   </SectionShell>
@@ -391,7 +435,7 @@ export function WorkspacePage() {
         {chatOpen && (
           <aside
             aria-label="Chat"
-            className="animate-slide-in-right flex w-96 shrink-0 flex-col border-l border-slate-900/[0.06] bg-white max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:shadow-2xl dark:border-white/[0.06] dark:bg-slate-900"
+            className="animate-slide-in-right flex w-96 shrink-0 flex-col border-l border-slate-900/[0.06] bg-white max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:shadow-2xl dark:border-white/[0.06] dark:bg-neutral-950"
           >
             <div className="border-b border-slate-900/[0.06] px-4 py-3 text-sm font-semibold dark:border-white/[0.06]">
               Ask about this codebase

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Overview } from "../../api/types";
 import { CitationChip } from "../CitationChip";
 import type { CodeRef } from "../../lib/refs";
+import { RichText } from "../RichText";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -41,7 +42,7 @@ export function OverviewSection({
           Summary
         </h2>
         <p className="max-w-3xl text-lg leading-relaxed text-slate-700 dark:text-slate-200">
-          {data.summary}
+          <RichText text={data.summary} />
         </p>
       </section>
 
@@ -53,10 +54,12 @@ export function OverviewSection({
           {data.tech_stack.map((item) => (
             <li
               key={item.name}
-              className="rounded-xl bg-slate-900/[0.03] p-4 transition-colors duration-300 hover:bg-slate-900/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+              className="rounded-xl bg-white p-4 ring-1 ring-slate-900/[0.06] transition-colors duration-300 hover:bg-slate-50 dark:bg-neutral-950 dark:ring-white/[0.08] dark:hover:bg-neutral-900"
             >
               <p className="font-medium">{item.name}</p>
-              <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{item.role}</p>
+              <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+                <RichText text={item.role} />
+              </p>
             </li>
           ))}
         </ul>
@@ -70,7 +73,9 @@ export function OverviewSection({
           {data.structure.map((item) => (
             <li key={item.path} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <CitationChip reference={{ path: item.path }} onOpen={onOpen} />
-              <span className="text-sm text-slate-700 dark:text-slate-300">{item.description}</span>
+              <span className="text-sm text-slate-700 dark:text-slate-300">
+                <RichText text={item.description} />
+              </span>
             </li>
           ))}
         </ul>
@@ -90,7 +95,9 @@ export function OverviewSection({
           <ol className="flex list-decimal flex-col gap-3 pl-5">
             {data.how_to_run.map((step, index) => (
               <li key={index} className="text-sm">
-                <p>{step.description}</p>
+                <p>
+                  <RichText text={step.description} />
+                </p>
                 {step.command && (
                   <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2.5 font-mono text-[13px] text-slate-100 ring-1 ring-white/[0.06] dark:bg-white/[0.04]">
                     <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre">
@@ -115,7 +122,7 @@ export function OverviewSection({
               <li key={entry.path} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <CitationChip reference={entry} onOpen={onOpen} />
                 <span className="text-sm text-slate-700 dark:text-slate-300">
-                  {entry.description}
+                  <RichText text={entry.description} />
                 </span>
               </li>
             ))}

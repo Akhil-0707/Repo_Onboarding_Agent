@@ -54,10 +54,12 @@ export function ErrorState({
   title = "Something went wrong",
   message,
   onRetry,
+  retryLabel = "Try again",
 }: {
   title?: string;
   message?: string;
   onRetry?: () => void;
+  retryLabel?: string;
 }) {
   return (
     <div
@@ -72,7 +74,7 @@ export function ErrorState({
           onClick={onRetry}
           className="btn mt-1 bg-rose-600 px-3 py-1.5 text-white hover:bg-rose-700"
         >
-          Try again
+          {retryLabel}
         </button>
       )}
     </div>

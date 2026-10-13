@@ -41,7 +41,7 @@ const STYLES: Record<Status, { label: string; className: string }> = {
   },
 };
 
-export function StatusBadge({ status }: { status: Status }) {
+export function StatusBadge({ status, label }: { status: Status; label?: string }) {
   const style = STYLES[status] ?? STYLES.queued;
   const active = status === "ingesting" || status === "running" || status === "queued";
   return (
@@ -54,7 +54,7 @@ export function StatusBadge({ status }: { status: Status }) {
         )}
         <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${style.className}`} />
       </span>
-      {style.label}
+      {label ?? style.label}
     </span>
   );
 }

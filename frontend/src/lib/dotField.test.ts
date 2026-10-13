@@ -20,7 +20,8 @@ function fakeContext() {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
-    quadraticCurveTo: vi.fn(),
+    closePath: vi.fn(),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     stroke: vi.fn(),
     arc: vi.fn(),
     fill: vi.fn(),
@@ -90,38 +91,65 @@ describe("dot field", () => {
   it("forgets trace points once they have faded, and caps their number", () => {
     const trail: TrailPoint[] = [
       { x: 0, y: 0, t: 0 },
-      { x: 5, y: 0, t: 500 },
+      { x: 5, y: 0, t: 700 },
       { x: 9, y: 0, t: 900 },
     ];
-    pruneTrail(trail, 1000);
-    expect(trail.map((p) => p.t)).toEqual([500, 900]);
+    pruneTrail(trail, 1000); // points live 260 ms
+    expect(trail.map((p) => p.t)).toEqual([900]);
 
     const long = Array.from({ length: 200 }, (_, i) => ({ x: i, y: 0, t: 1000 }));
     pruneTrail(long, 1000);
-    expect(long).toHaveLength(96);
-    expect(long[0]!.x).toBe(104);
+    expect(long).toHaveLength(48);
+    expect(long[0]!.x).toBe(152);
   });
 
-  it("draws the trace fading and thinning towards its tail", () => {
+  it("fills the trace once as a ribbon that fades from the tail to the cursor", () => {
     const ctx = fakeContext();
+    const stops: [number, string][] = [];
+    ctx.createLinearGradient.mockImplementation(() => ({
+      addColorStop: vi.fn((offset: number, color: string) => {
+        stops.push([offset, color]);
+      }),
+    }));
     const palette = { rgb: "1 2 3", alpha: 0.2, lineAlpha: 0.1, trailAlpha: 0.5 };
-    const widths: number[] = [];
-    ctx.stroke.mockImplementation(() => widths.push(ctx.lineWidth));
     const trail: TrailPoint[] = [
-      { x: 0, y: 0, t: 400 },
-      { x: 10, y: 0, t: 700 },
+      { x: 0, y: 0, t: 800 },
+      { x: 0.2, y: 0, t: 810 }, // barely moved: ignored
+      { x: 10, y: 0, t: 900 },
       { x: 20, y: 5, t: 1000 },
     ];
 
     drawTrail(ctx as unknown as CanvasRenderingContext2D, trail, 1000, palette);
-    expect(ctx.quadraticCurveTo).toHaveBeenCalledTimes(2);
-    expect(widths[0]).toBeLessThan(widths[1]!); // older segment is thinner
-    expect(ctx.strokeStyle).toBe("rgb(1 2 3 / 0.500)"); // newest point at full strength
-    expect(ctx.lineTo).toHaveBeenLastCalledWith(20, 5); // reaches the cursor
-
-    ctx.stroke.mockClear();
-    drawTrail(ctx as unknown as CanvasRenderingContext2D, trail.slice(0, 1), 1000, palette);
+    expect(ctx.fill).toHaveBeenCalledTimes(1); // one fill: no overlapping joints
     expect(ctx.stroke).not.toHaveBeenCalled();
+    expect(ctx.createLinearGradient).toHaveBeenCalledWith(0, 0, 20, 5);
+    expect(stops).toEqual([
+      [0, "rgb(1 2 3 / 0.000)"],
+      [1, "rgb(1 2 3 / 0.500)"],
+    ]);
+    // The ribbon starts at the tail with zero width.
+    expect(ctx.moveTo).toHaveBeenCalledWith(0, 0);
+
+    ctx.fill.mockClear();
+    drawTrail(ctx as unknown as CanvasRenderingContext2D, trail.slice(0, 1), 1000, palette);
+    drawTrail(ctx as unknown as CanvasRenderingContext2D, trail, 2000, palette); // all faded
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it("fills a trace with no length in a flat colour", () => {
+    const ctx = fakeContext();
+    const palette = { rgb: "1 2 3", alpha: 0.2, lineAlpha: 0.1, trailAlpha: 0.5 };
+    drawTrail(
+      ctx as unknown as CanvasRenderingContext2D,
+      [
+        { x: 0, y: 0, t: 990 },
+        { x: 0.8, y: 0, t: 1000 },
+      ],
+      1000,
+      palette,
+    );
+    expect(ctx.createLinearGradient).not.toHaveBeenCalled();
+    expect(ctx.fillStyle).toBe("rgb(1 2 3 / 0.500)");
   });
 
   it("animates every frame and stops when torn down", () => {
@@ -139,7 +167,7 @@ describe("dot field", () => {
     window.dispatchEvent(new MouseEvent("pointermove", { clientX: 5, clientY: 5 }));
     window.dispatchEvent(new MouseEvent("pointermove", { clientX: 40, clientY: 5 }));
     frames.shift()!(48);
-    expect(ctx.quadraticCurveTo).toHaveBeenCalled(); // the cursor trace
+    expect(ctx.createLinearGradient).toHaveBeenCalled(); // the cursor trace
 
     stop();
     expect(cancel).toHaveBeenCalled();

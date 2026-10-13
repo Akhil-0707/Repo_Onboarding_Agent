@@ -40,6 +40,28 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Too big")).toBeInTheDocument();
   });
 
+  it("shows how far the AI analysis got on ingested repositories", async () => {
+    mockFetch((url) => {
+      if (url.endsWith("/api/auth/refresh")) return jsonResponse({ access: "a", user });
+      return jsonResponse({
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          makeRepo({ id: "r1", full_name: "acme/a", analysis_status: "failed" }),
+          makeRepo({ id: "r2", full_name: "acme/b", analysis_status: "running" }),
+          makeRepo({ id: "r3", full_name: "acme/c", analysis_status: "partial" }),
+        ],
+      });
+    });
+    renderWithProviders(<DashboardPage />, { auth: true });
+
+    expect(await screen.findByText("Analysis failed")).toBeInTheDocument();
+    expect(screen.getByText("Analyzing")).toBeInTheDocument();
+    expect(screen.getByText("Partly analyzed")).toBeInTheDocument();
+    expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+  });
+
   it("starts an analysis and goes to the progress page", async () => {
     mockFetch((url, init) => {
       if (url.endsWith("/api/auth/refresh")) return jsonResponse({ access: "a", user });

@@ -55,7 +55,7 @@ export function UserMenu() {
       {open && (
         <div
           role="menu"
-          className="animate-pop-in absolute right-0 z-30 mt-2 w-52 origin-top-right rounded-xl bg-white p-1 shadow-xl ring-1 shadow-slate-900/10 ring-slate-900/[0.08] dark:bg-slate-900 dark:shadow-black/40 dark:ring-white/10"
+          className="animate-pop-in absolute right-0 z-30 mt-2 w-52 origin-top-right rounded-xl bg-white p-1 shadow-xl ring-1 shadow-slate-900/10 ring-slate-900/[0.08] dark:bg-neutral-900 dark:shadow-black/60 dark:ring-white/10"
         >
           <p className="truncate px-3 py-2 text-xs text-slate-500">@{user.username}</p>
           <Link

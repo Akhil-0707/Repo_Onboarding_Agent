@@ -4,6 +4,7 @@ import type { Architecture, ArchitectureModule } from "../../api/types";
 import type { CodeRef } from "../../lib/refs";
 import { CitationChip } from "../CitationChip";
 import { MermaidDiagram } from "../MermaidDiagram";
+import { RichText } from "../RichText";
 
 function Connections({
   module,
@@ -51,7 +52,9 @@ export function ArchitectureSection({
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8">
-      <p className="max-w-3xl text-slate-700 dark:text-slate-300">{data.summary}</p>
+      <p className="max-w-3xl text-slate-700 dark:text-slate-300">
+        <RichText text={data.summary} />
+      </p>
 
       <figure className="surface p-5">
         <MermaidDiagram
@@ -86,7 +89,7 @@ export function ArchitectureSection({
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-                {module.description}
+                <RichText text={module.description} />
               </p>
               {module.paths.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">

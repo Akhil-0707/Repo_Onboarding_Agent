@@ -14,17 +14,21 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Layout() {
   const { pathname } = useLocation();
+  // The workspace and tour mode use the full width; align the header with them.
+  const wide = pathname.startsWith("/repos/");
   return (
     <div className="flex h-dvh flex-col">
       <LiveBackground />
       <ModelBanner />
       <header className="z-20 shrink-0 border-b border-slate-900/[0.06] bg-slate-50/80 backdrop-blur-md dark:border-white/[0.06] dark:bg-black/70">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
+        <div
+          className={`mx-auto flex h-14 items-center gap-2 px-3 sm:gap-4 sm:px-4 ${wide ? "" : "max-w-7xl"}`}
+        >
           <NavLink to="/" className="group flex items-center gap-2.5 font-semibold tracking-tight">
             <span className="bg-brand flex h-7 w-7 items-center justify-center rounded-lg text-sm font-bold transition-transform duration-450 group-hover:-rotate-6">
               R
             </span>
-            <span>RepoGuide</span>
+            <span className="max-sm:hidden">RepoGuide</span>
           </NavLink>
           <nav className="flex items-center gap-1" aria-label="Main">
             <NavLink to="/dashboard" className={navClass}>
@@ -34,7 +38,7 @@ export function Layout() {
               Settings
             </NavLink>
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <ThemeToggle />
             <UserMenu />
           </div>

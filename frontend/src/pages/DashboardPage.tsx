@@ -64,6 +64,23 @@ function NewAnalysisForm({ initial }: { initial: string }) {
   );
 }
 
+/** One badge for the whole card: ingestion first, then how far the AI analysis got. */
+function RepoBadge({ repo }: { repo: Repository }) {
+  if (repo.status !== "ready") return <StatusBadge status={repo.status} />;
+  switch (repo.analysis_status) {
+    case "running":
+      return <StatusBadge status="running" label="Analyzing" />;
+    case "waiting_for_model":
+      return <StatusBadge status="waiting_for_model" />;
+    case "partial":
+      return <StatusBadge status="partial" label="Partly analyzed" />;
+    case "failed":
+      return <StatusBadge status="failed" label="Analysis failed" />;
+    default:
+      return <StatusBadge status="ready" />;
+  }
+}
+
 function RepoCard({ repo }: { repo: Repository }) {
   const remove = useRemoveRepository();
   return (
@@ -75,14 +92,8 @@ function RepoCard({ repo }: { repo: Repository }) {
         >
           {repo.full_name}
         </Link>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusBadge status={repo.status} />
-          {repo.status === "ready" && repo.analysis_status === "waiting_for_model" && (
-            <span className="text-xs text-amber-600 dark:text-amber-400">AI waiting for model</span>
-          )}
-          {repo.status === "ready" && repo.analysis_status === "running" && (
-            <span className="text-xs text-sky-600 dark:text-sky-400">AI analysis running</span>
-          )}
+        <div className="shrink-0">
+          <RepoBadge repo={repo} />
         </div>
       </div>
       {repo.description && (

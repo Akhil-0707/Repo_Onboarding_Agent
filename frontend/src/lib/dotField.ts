@@ -20,9 +20,9 @@ const LINK_DISTANCE = 120;
 const CURSOR_RADIUS = 140;
 const CURSOR_PUSH = 60; // px/s at the cursor itself
 const EDGE = 20; // dots wrap a little outside the viewport so they never pop in
-const TRAIL_MS = 650; // how long a point of the cursor trace stays visible
-const TRAIL_MAX_POINTS = 96;
-const TRAIL_WIDTH = 2.5; // px at the cursor, tapering to nothing at the tail
+const TRAIL_MS = 260; // how long a point of the cursor trace stays visible
+const TRAIL_MAX_POINTS = 48;
+const TRAIL_WIDTH = 2; // px at the cursor, tapering to nothing at the tail
 
 export interface TrailPoint {
   x: number;
@@ -94,7 +94,7 @@ function readPalette(root: HTMLElement): Palette {
     rgb,
     alpha: number("--dots-alpha", 0.3),
     lineAlpha: number("--dots-line-alpha", 0.12),
-    trailAlpha: number("--trail-alpha", 0.45),
+    trailAlpha: number("--trail-alpha", 0.25),
   };
 }
 
@@ -137,40 +137,75 @@ export function pruneTrail(trail: TrailPoint[], now: number): void {
   if (stale > 0) trail.splice(0, stale);
 }
 
-/** The cursor trace: a smooth curve through the recent points (midpoint quadratics), fading and
- * thinning with age. */
+/** Chaikin corner cutting: rounds the polyline, keeps both ends. */
+function smoothTrail(points: TrailPoint[]): TrailPoint[] {
+  if (points.length < 3) return points;
+  const out: TrailPoint[] = [points[0]!];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    const lerp = (k: number) => ({
+      x: a.x + (b.x - a.x) * k,
+      y: a.y + (b.y - a.y) * k,
+      t: a.t + (b.t - a.t) * k,
+    });
+    out.push(lerp(0.25), lerp(0.75));
+  }
+  out.push(points[points.length - 1]!);
+  return out;
+}
+
+/** The cursor trace: one tapered ribbon along a smoothed path, filled once with a gradient that
+ * fades towards the tail. A single fill has no overlapping caps, so no bright dots at joints. */
 export function drawTrail(
   ctx: CanvasRenderingContext2D,
   trail: TrailPoint[],
   now: number,
   palette: Palette,
 ): void {
-  if (trail.length < 2) return;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  const mid = (a: TrailPoint, b: TrailPoint) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-  for (let i = 1; i < trail.length; i++) {
-    const prev = trail[i - 1]!;
-    const point = trail[i]!;
-    const life = 1 - Math.min(1, Math.max(0, now - point.t) / TRAIL_MS);
-    if (life <= 0) continue;
-    const start = i === 1 ? prev : mid(trail[i - 2]!, prev);
-    const end = mid(prev, point);
-    ctx.strokeStyle = `rgb(${palette.rgb} / ${(life * palette.trailAlpha).toFixed(3)})`;
-    ctx.lineWidth = Math.max(0.5, life * TRAIL_WIDTH);
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.quadraticCurveTo(prev.x, prev.y, end.x, end.y);
-    ctx.stroke();
+  // Drop points that barely moved (no direction to build the ribbon from).
+  const points: TrailPoint[] = [];
+  for (const point of trail) {
+    const last = points[points.length - 1];
+    if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 0.75) points.push(point);
   }
-  // Close the gap between the last midpoint and the cursor itself.
-  const tail = trail[trail.length - 2]!;
-  const head = trail[trail.length - 1]!;
-  const end = mid(tail, head);
+  const live = points.filter((point) => now - point.t < TRAIL_MS);
+  if (live.length < 2) return;
+  const path = smoothTrail(live);
+  const count = path.length;
+
+  const left: { x: number; y: number }[] = [];
+  const right: { x: number; y: number }[] = [];
+  path.forEach((point, i) => {
+    const before = path[Math.max(0, i - 1)]!;
+    const after = path[Math.min(count - 1, i + 1)]!;
+    const dx = after.x - before.x;
+    const dy = after.y - before.y;
+    const length = Math.hypot(dx, dy) || 1;
+    // Thin at the tail, full width at the cursor, and thinner as the point ages.
+    const life = 1 - Math.min(1, Math.max(0, now - point.t) / TRAIL_MS);
+    const half = (TRAIL_WIDTH / 2) * (i / (count - 1)) * (0.4 + 0.6 * life);
+    left.push({ x: point.x - (dy / length) * half, y: point.y + (dx / length) * half });
+    right.push({ x: point.x + (dy / length) * half, y: point.y - (dx / length) * half });
+  });
+
+  const tail = path[0]!;
+  const head = path[count - 1]!;
+  const color = (alpha: number) => `rgb(${palette.rgb} / ${alpha.toFixed(3)})`;
+  if (Math.hypot(head.x - tail.x, head.y - tail.y) > 1) {
+    const gradient = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+    gradient.addColorStop(0, color(0));
+    gradient.addColorStop(1, color(palette.trailAlpha));
+    ctx.fillStyle = gradient;
+  } else {
+    ctx.fillStyle = color(palette.trailAlpha);
+  }
   ctx.beginPath();
-  ctx.moveTo(end.x, end.y);
-  ctx.lineTo(head.x, head.y);
-  ctx.stroke();
+  ctx.moveTo(left[0]!.x, left[0]!.y);
+  for (const point of left.slice(1)) ctx.lineTo(point.x, point.y);
+  for (const point of right.reverse()) ctx.lineTo(point.x, point.y);
+  ctx.closePath();
+  ctx.fill();
 }
 
 export function startDotField(canvas: HTMLCanvasElement): () => void {

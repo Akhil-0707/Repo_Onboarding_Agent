@@ -1,6 +1,7 @@
 import type { StartHere } from "../../api/types";
 import { CitationChip } from "../CitationChip";
 import type { CodeRef } from "../../lib/refs";
+import { RichText } from "../RichText";
 
 export function StartHereSection({
   data,
@@ -25,7 +26,9 @@ export function StartHereSection({
             </span>
             <div className="min-w-0">
               <CitationChip reference={file} onOpen={onOpen} />
-              <p className="mt-1.5 text-sm text-slate-700 dark:text-slate-300">{file.reason}</p>
+              <p className="mt-1.5 text-sm text-slate-700 dark:text-slate-300">
+                <RichText text={file.reason} />
+              </p>
             </div>
           </li>
         ))}

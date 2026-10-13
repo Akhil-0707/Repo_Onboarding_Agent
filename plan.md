@@ -144,3 +144,12 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Live background: drifting, linked dots pushed aside by the cursor; fading cursor trace
 - [x] Dots brightened; dark theme base changed to black
 - [x] Touch and reduced-motion fallbacks; tests (114 frontend); checked in the running app
+
+## UI/UX pass — ✅ Completed (2026-10-13)
+- [x] Audit of the real app (signed-in test user, desktop + phone width)
+- [x] AI text renders inline code and bold instead of raw backticks
+- [x] Dashboard badge shows the AI analysis state; failed/missing sections explain why and offer Re-analyze
+- [x] Phone layout: file drawer closed by default, compact workspace bar and header, no horizontal overflow
+- [x] Opaque dark surfaces (no background lines through cards/diagrams); graphite code highlight; full-width header in the workspace
+- [x] Cursor trace: 60% shorter, dimmer, one smooth ribbon
+- [x] Tests (122 frontend, coverage floors met) + E2E main flow

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { Glossary } from "../../api/types";
 import { CitationChip } from "../CitationChip";
 import type { CodeRef } from "../../lib/refs";
+import { RichText } from "../RichText";
 
 export function GlossarySection({
   data,
@@ -49,7 +50,7 @@ export function GlossarySection({
                 </span>
               </dt>
               <dd className="mt-1.5 text-sm text-slate-700 dark:text-slate-300">
-                {term.definition}
+                <RichText text={term.definition} />
                 {term.path && (
                   <span className="mt-2 block">
                     <span className="mr-1 text-xs text-slate-500">Defined in</span>

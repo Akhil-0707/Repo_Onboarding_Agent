@@ -58,7 +58,7 @@
   --dots-rgb: 15 23 42;
   --dots-alpha: 0.28;
   --dots-line-alpha: 0.11;
-  --trail-alpha: 0.4;
+  --trail-alpha: 0.22;
 }
 .dark {
   --brand-from: #f8fafc;
@@ -69,7 +69,7 @@
   --dots-rgb: 203 213 225;
   --dots-alpha: 0.42;
   --dots-line-alpha: 0.13;
-  --trail-alpha: 0.55;
+  --trail-alpha: 0.3;
 }
 
 @layer base {
@@ -154,7 +154,7 @@
    A spotlight follows the cursor (position from lib/pointerEffects.ts): ::before lights the
    fill behind the content, ::after lights the edge through a ring-shaped mask. */
 @utility surface {
-  @apply rounded-2xl bg-white ring-1 ring-slate-900/[0.06] dark:bg-white/[0.03] dark:ring-white/[0.07];
+  @apply rounded-2xl bg-white ring-1 ring-slate-900/[0.06] dark:bg-neutral-950 dark:ring-white/[0.08];
   position: relative;
   isolation: isolate;
   &::before,

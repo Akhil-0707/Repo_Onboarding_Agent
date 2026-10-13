@@ -4,6 +4,7 @@ import type { Tour } from "../../api/types";
 import type { CodeRef } from "../../lib/refs";
 import { TOUR_KIND_LABELS } from "../../lib/tour";
 import { CitationChip } from "../CitationChip";
+import { RichText } from "../RichText";
 
 export function TourKindBadge({ kind }: { kind: Tour["steps"][number]["kind"] }) {
   const flow = kind === "flow_trace";
@@ -32,7 +33,9 @@ export function TourSection({
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="mb-5 flex flex-wrap items-center gap-4">
-        <p className="max-w-2xl flex-1 text-slate-700 dark:text-slate-300">{data.intro}</p>
+        <p className="max-w-2xl flex-1 text-slate-700 dark:text-slate-300">
+          <RichText text={data.intro} />
+        </p>
         <Link to={`/repos/${repoId}/tour`} className="btn btn-primary">
           Start the tour →
         </Link>
@@ -58,7 +61,7 @@ export function TourSection({
                 <CitationChip reference={step} onOpen={onOpen} />
               </div>
               <p className="mt-1.5 line-clamp-2 text-sm text-slate-700 dark:text-slate-300">
-                {step.explanation}
+                <RichText text={step.explanation} />
               </p>
             </div>
           </li>

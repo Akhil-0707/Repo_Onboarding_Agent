@@ -9,6 +9,7 @@ import { TourKindBadge } from "../components/sections/TourSection";
 import { ErrorState, LoadingState } from "../components/StateViews";
 import type { Tour } from "../api/types";
 import { parseStep } from "../lib/tour";
+import { RichText } from "../components/RichText";
 
 function isTyping(target: EventTarget | null): boolean {
   return (
@@ -99,7 +100,7 @@ function TourStepper({ repoId, tour }: { repoId: string; tour: Tour }) {
             key={`text-${index}`}
             className="animate-fade-up leading-relaxed whitespace-pre-line text-slate-700 [animation-delay:60ms] dark:text-slate-300"
           >
-            {step.explanation}
+            <RichText text={step.explanation} />
           </p>
           <div className="flex items-center gap-2">
             <button
