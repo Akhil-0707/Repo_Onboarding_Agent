@@ -195,3 +195,10 @@ describe("installSoundEffects", () => {
     expect(engine.trail).toHaveBeenCalledWith(1000); // 50 px in 50 ms
   });
 });
+
+describe("volume", () => {
+  it("keeps every sound behind one quiet master volume", async () => {
+    const { ctx } = await unlocked();
+    expect(ctx.gains[0]!.gain.value).toBe(0.3);
+  });
+});

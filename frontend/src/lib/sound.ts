@@ -5,7 +5,7 @@
  * key press. The choice to mute is remembered per browser (`SoundToggle`). */
 
 const STORAGE_KEY = "repoguide.sound";
-const MASTER_VOLUME = 0.6;
+const MASTER_VOLUME = 0.3; // every sound passes through this one gain
 /** Minimum gap between hover tones, so sweeping across a grid does not chatter. */
 const HOVER_GAP_S = 0.07;
 /** Cursor speed (px/s) at which the whoosh reaches full (still quiet) volume. */
