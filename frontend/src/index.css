@@ -69,6 +69,9 @@
   --spot-fill: rgb(15 23 42 / 0.045);
   --spot-edge: rgb(15 23 42 / 0.28);
   /* Live dot background and cursor trace (lib/dotField.ts): colour channels and opacities. */
+  /* Scrollbars: invisible at rest, faint on hover, clear while scrolling. */
+  --scroll-thumb-hover: rgb(15 23 42 / 0.16);
+  --scroll-thumb-active: rgb(15 23 42 / 0.38);
   --dots-rgb: 15 23 42;
   --dots-alpha: 0.28;
   --dots-line-alpha: 0.11;
@@ -80,6 +83,8 @@
   --brand-on: #0f172a;
   --spot-fill: rgb(255 255 255 / 0.06);
   --spot-edge: rgb(255 255 255 / 0.32);
+  --scroll-thumb-hover: rgb(255 255 255 / 0.14);
+  --scroll-thumb-active: rgb(255 255 255 / 0.34);
   --dots-rgb: 203 213 225;
   --dots-alpha: 0.42;
   --dots-line-alpha: 0.13;
@@ -101,6 +106,22 @@
   }
   ::selection {
     @apply bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900;
+  }
+  /* Scrollbars stay out of the way: thin and invisible until the area is hovered, clearly
+     visible while it scrolls (`data-scrolling`, set by lib/scrollActivity.ts), then fade out.
+     The track keeps its space, so content never shifts when the thumb appears. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 300ms ease-out;
+  }
+  *:hover {
+    scrollbar-color: var(--scroll-thumb-hover) transparent;
+  }
+  [data-scrolling],
+  [data-scrolling]:hover {
+    scrollbar-color: var(--scroll-thumb-active) transparent;
+    transition-duration: 120ms;
   }
   /* Native dropdown lists: selects have see-through backgrounds, and the browser would draw
      their option list on its own default colours (light text on white in the dark theme). */
