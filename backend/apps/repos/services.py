@@ -117,15 +117,24 @@ def _enqueue(repository: Repository, user: User) -> IngestionJob:
     return job
 
 
-def _enqueue_analysis_only(repository: Repository, user: User) -> IngestionJob:
-    """Same commit, code index intact: re-run only the AI sections that are not done."""
+def _enqueue_analysis_only(
+    repository: Repository, user: User, only: list[str] | None = None
+) -> IngestionJob:
+    """Same commit, code index intact: re-run only the AI sections that are not done.
+
+    ``only`` limits the job to those sections (a requested tour must not also retry the rest);
+    it is kept on the job's analyze step, so it survives a pause while the model is offline."""
     from apps.analysis.models import Analysis, AnalysisStatus
     from apps.analysis.tasks import analyze_repository
 
     analysis = Analysis.objects.filter(repository=repository).first()
     if analysis is not None:
         sections = {
-            key: state if state.get("status") == "done" else {**state, "status": "pending"}
+            key: (
+                state
+                if state.get("status") == "done" or (only is not None and key not in only)
+                else {**state, "status": "pending"}
+            )
             for key, state in (analysis.sections or {}).items()
         }
         Analysis.objects.filter(pk=analysis.pk).update(
@@ -135,6 +144,8 @@ def _enqueue_analysis_only(repository: Repository, user: User) -> IngestionJob:
     for step in steps:
         if step["key"] != "analyze":
             step.update(status="done", progress=100)
+        elif only is not None:
+            step["only"] = list(only)
     job = IngestionJob.objects.create(
         repository=repository,
         user=user,
@@ -254,7 +265,7 @@ def reanalyze(
 
     Snapshots are a shared cache, so a finished analysis of the same commit is never redone."""
     from apps.analysis.models import Analysis
-    from apps.analysis.sections import SECTION_KEYS
+    from apps.analysis.sections import wanted_sections
 
     job = latest_job(repository)
     if job is not None and job.status in ACTIVE_JOB_STATUSES:
@@ -272,9 +283,41 @@ def reanalyze(
     if repository.status != RepoStatus.READY:
         raise AnalysisInProgress()
     analysis = Analysis.objects.filter(repository=repository).first()
-    if analysis is not None and all(analysis.section_status(k) == "done" for k in SECTION_KEYS):
+    if analysis is not None and all(
+        analysis.section_status(s.key) == "done" for s in wanted_sections(analysis.sections)
+    ):
         return AnalysisStart(repository, job, created=False, cached=True)  # already up to date
     on_new_work()
     return AnalysisStart(
         repository, _enqueue_analysis_only(repository, user), created=True, cached=False
+    )
+
+
+def request_section(user: User, repository: Repository, key: str) -> AnalysisStart:
+    """Create an on-demand section (the Guided Tour) for this snapshot.
+
+    Free like a cache hit: it is written once per snapshot and then shared. Asking while an
+    analysis is still running is refused, because that job would overwrite the request."""
+    from apps.analysis.models import Analysis
+    from apps.analysis.sections import get_section
+
+    spec = get_section(key)
+    if spec is None or not spec.on_demand:
+        raise NotFoundError(f"'{key}' is not a section that can be requested.")
+    if repository.status != RepoStatus.READY:
+        raise AnalysisInProgress()
+    job = latest_job(repository)
+    if job is not None and job.status in ACTIVE_JOB_STATUSES:
+        raise AnalysisInProgress()
+    analysis, _ = Analysis.objects.get_or_create(repository=repository)
+    state = (analysis.sections or {}).get(key) or {}
+    if state.get("status") == "done":
+        return AnalysisStart(repository, job, created=False, cached=True)
+    sections = {
+        **(analysis.sections or {}),
+        key: {**state, "requested": True, "status": "pending", "error": ""},
+    }
+    Analysis.objects.filter(pk=analysis.pk).update(sections=sections)
+    return AnalysisStart(
+        repository, _enqueue_analysis_only(repository, user, only=[key]), created=True, cached=False
     )

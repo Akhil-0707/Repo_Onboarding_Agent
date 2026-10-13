@@ -27,6 +27,7 @@ from apps.repos.services import (
     get_user_repository,
     latest_job,
     reanalyze,
+    request_section,
     start_analysis,
 )
 
@@ -87,6 +88,19 @@ class ReanalyzeView(APIView):
             request.user, repository, on_new_work=lambda: consume_new_analysis(request)
         )
         return start_response(result)
+
+
+class GenerateSectionView(APIView):
+    @extend_schema(
+        request=None, responses={200: AnalysisStartSerializer, 201: AnalysisStartSerializer}
+    )
+    def post(self, request: Request, repo_id: str, section: str) -> Response:
+        """Create an on-demand section (the Guided Tour) for this snapshot.
+
+        201 when the work was started; 200 with ``cached: true`` when it already exists;
+        409 while an analysis is still running."""
+        repository = get_user_repository(request.user, repo_id)
+        return start_response(request_section(request.user, repository, section))
 
 
 class RepositoryDetailView(APIView):

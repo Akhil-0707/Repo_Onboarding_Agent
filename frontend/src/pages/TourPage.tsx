@@ -5,6 +5,7 @@ import { useAnalysis } from "../api/analysis";
 import { useRepository } from "../api/repos";
 import { CodeViewer } from "../components/CodeViewer";
 import { SectionShell } from "../components/sections/SectionShell";
+import { TourRequest } from "../components/sections/TourRequest";
 import { TourKindBadge } from "../components/sections/TourSection";
 import { ErrorState, LoadingState } from "../components/StateViews";
 import type { Tour } from "../api/types";
@@ -189,13 +190,18 @@ export function TourPage() {
           ← Back to workspace
         </Link>
       )}
-      <SectionShell
-        title="Guided Tour"
-        section={analysis.data.sections.tour}
-        analysisStatus={analysis.data.status}
-      >
-        {(tour) => <TourStepper repoId={repoId} tour={tour} />}
-      </SectionShell>
+      {analysis.data.sections.tour.status === "not_requested" ? (
+        <TourRequest repoId={repoId} analysisStatus={analysis.data.status} />
+      ) : (
+        <SectionShell
+          title="Guided Tour"
+          section={analysis.data.sections.tour}
+          analysisStatus={analysis.data.status}
+          writingHint="A tour usually takes 3 to 4 minutes; this page shows it as soon as it is ready."
+        >
+          {(tour) => <TourStepper repoId={repoId} tour={tour} />}
+        </SectionShell>
+      )}
     </div>
   );
 }

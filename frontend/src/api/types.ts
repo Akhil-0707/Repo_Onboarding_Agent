@@ -117,7 +117,8 @@ export interface FileContent extends FileEntry {
 export type AnalysisStatus =
   "pending" | "running" | "waiting_for_model" | "done" | "partial" | "failed";
 
-export type SectionStatus = "pending" | "running" | "done" | "failed";
+/** `not_requested`: an on-demand section (the Guided Tour) nobody has asked for yet. */
+export type SectionStatus = "pending" | "running" | "done" | "failed" | "not_requested";
 
 export interface SectionState<T> {
   status: SectionStatus;

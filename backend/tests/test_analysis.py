@@ -72,7 +72,9 @@ def test_full_analysis_produces_validated_sections() -> None:
     assert analysis.status == "done"
     assert analysis.model == "fake-llm"
     assert analysis.checkpoint is None
-    assert set(analysis.sections) == {"overview", "architecture", "start_here", "tour", "glossary"}
+    # The Guided Tour is on demand: a normal analysis does not write it.
+    assert set(analysis.sections) == {"overview", "architecture", "start_here", "glossary"}
+    assert "tour" not in llm.sections_answered
 
     overview = analysis.sections["overview"]["data"]
     assert {s["path"] for s in overview["structure"]} == {"app/", "tests/"}  # imaginary/ dropped
@@ -97,11 +99,6 @@ def test_full_analysis_produces_validated_sections() -> None:
     assert 'm_app(["Application"])' in arch["mermaid"]
     assert "m_tests -.->" in arch["mermaid"]
 
-    tour = analysis.sections["tour"]["data"]["steps"]
-    assert [s["title"] for s in tour] == ["Start-up", "Routing", "Service"]  # ghost dropped
-    assert [s["kind"] for s in tour] == ["entry_point", "flow_trace", "flow_trace"]
-    assert (tour[2]["start_line"], tour[2]["end_line"]) == (10, 20)  # symbol beats line 99
-
     terms = {t["term"]: t for t in analysis.sections["glossary"]["data"]["terms"]}
     assert terms["UserService"]["path"] == "app/services.py"  # linked via symbol index
     assert terms["UserService"]["start_line"] == 10
@@ -125,6 +122,9 @@ def test_analysis_api() -> None:
     body = client.get(f"/api/repos/{repo.pk}/analysis").json()
     assert body["status"] == "done"
     assert set(body["sections"]) == {"overview", "architecture", "start_here", "tour", "glossary"}
+    assert body["sections"]["tour"] == {
+        "status": "not_requested", "error": "", "updated_at": None, "data": None,
+    }  # fmt: skip
     assert body["sections"]["overview"]["data"]["summary"]
     assert body["usage"]["calls"] > 0
 
@@ -187,9 +187,9 @@ def test_model_dies_mid_analysis_and_resumes_from_checkpoint() -> None:
     job.refresh_from_db()
     assert job.status == "done" and analysis.status == "done"
     assert "overview" not in healthy.sections_answered  # finished sections are never redone
-    assert healthy.sections_answered == ["architecture", "start_here", "tour", "glossary"]
+    assert healthy.sections_answered == ["architecture", "start_here", "glossary"]
     # Architecture research resumed from the checkpoint: no new metadata tool call needed.
-    assert healthy.calls == 1 + 1 + 3 * 3  # notes + JSON, then 3 sections x (tool, notes, JSON)
+    assert healthy.calls == 1 + 1 + 2 * 3  # notes + JSON, then 2 sections x (tool, notes, JSON)
 
 
 def test_waiting_too_long_gives_up(monkeypatch: pytest.MonkeyPatch, settings: Any) -> None:
@@ -278,3 +278,48 @@ def test_end_to_end_over_http_with_repair_outage_and_resume(
     assert job.status == "done" and analysis.status == "done"
     assert state["sections"].count("overview") == 1
     assert analysis.usage["prompt_tokens"] > 0
+
+
+def test_guided_tour_is_created_only_when_asked_for() -> None:
+    set_llm_client(FakeAnalysisLLM())
+    repo, _ = start()
+    user = UserRepository.objects.get(repository=repo).user
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {issue_tokens(user).access}")
+    # A section that failed earlier is left alone: asking for the tour writes only the tour.
+    sections = dict(Analysis.objects.get(repository=repo).sections)
+    sections["glossary"] = {"status": "failed", "error": "model gave up"}
+    Analysis.objects.filter(repository=repo).update(sections=sections, status="partial")
+    before = Analysis.objects.get(repository=repo).sections
+
+    # Refused while an analysis is still running (that job would overwrite the request).
+    running = IngestionJob.objects.create(repository=repo, user=user, status="running")
+    assert client.post(f"/api/repos/{repo.pk}/analysis/tour/generate").status_code == 409
+    running.delete()
+
+    llm = FakeAnalysisLLM()
+    set_llm_client(llm)
+    response = client.post(f"/api/repos/{repo.pk}/analysis/tour/generate")
+    assert response.status_code == 201 and response.json()["created"] is True
+    job = IngestionJob.objects.get(pk=response.json()["job"]["id"])
+    assert job.status == "done"
+    assert {s["key"]: s["status"] for s in job.steps}["clone"] == "done"  # no re-ingestion
+    assert llm.sections_answered == ["tour"]  # only the tour was written
+
+    analysis = Analysis.objects.get(repository=repo)
+    assert analysis.status == "partial"  # the glossary is still missing
+    assert analysis.sections["glossary"] == before["glossary"]
+    assert analysis.sections["tour"]["status"] == "done"
+    tour = analysis.sections["tour"]["data"]["steps"]
+    assert [s["title"] for s in tour] == ["Start-up", "Routing", "Service"]  # ghost dropped
+    assert [s["kind"] for s in tour] == ["entry_point", "flow_trace", "flow_trace"]
+    assert (tour[2]["start_line"], tour[2]["end_line"]) == (10, 20)  # symbol beats line 99
+    assert analysis.sections["overview"] == before["overview"]  # untouched
+    body = client.get(f"/api/repos/{repo.pk}/analysis").json()
+    assert body["sections"]["tour"]["status"] == "done"
+
+    # Asking again is free: the tour is shared with everyone who opens this snapshot.
+    again = client.post(f"/api/repos/{repo.pk}/analysis/tour/generate")
+    assert again.status_code == 200 and again.json()["cached"] is True
+    # Only on-demand sections can be requested.
+    assert client.post(f"/api/repos/{repo.pk}/analysis/overview/generate").status_code == 404

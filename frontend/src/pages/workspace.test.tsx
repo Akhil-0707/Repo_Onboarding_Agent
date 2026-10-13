@@ -375,3 +375,41 @@ describe("SectionShell", () => {
     expect(await screen.findByText("Writing the overview…")).toBeInTheDocument();
   });
 });
+
+describe("Guided Tour on demand", () => {
+  const notRequested = {
+    status: "not_requested",
+    error: "",
+    updated_at: null,
+    data: null,
+  } as const;
+
+  it("offers to create the tour, says how long it takes, then shows it being written", async () => {
+    const analysis = makeAnalysis();
+    analysis.sections.tour = { ...notRequested };
+    const fetchSpy = mockBackend(analysis);
+    renderWorkspace("/repos/repo1?tab=tour");
+
+    expect(await screen.findByText(/takes about 3 to 4 minutes/)).toBeInTheDocument();
+    // The server now reports the tour as being written.
+    analysis.status = "running";
+    analysis.sections.tour = { status: "running", error: "", updated_at: null, data: null };
+    await userEvent.click(screen.getByRole("button", { name: "Create the guided tour" }));
+
+    const post = fetchSpy.mock.calls.find(([url]) =>
+      String(url).endsWith("/analysis/tour/generate"),
+    );
+    expect(post?.[1]?.method).toBe("POST");
+    expect(await screen.findByText(/usually takes 3 to 4 minutes/)).toBeInTheDocument();
+  });
+
+  it("waits for a running analysis before the tour can be asked for", async () => {
+    const analysis = makeAnalysis({ status: "running" });
+    analysis.sections.tour = { ...notRequested };
+    mockBackend(analysis);
+    renderWorkspace("/repos/repo1?tab=tour");
+
+    expect(await screen.findByRole("button", { name: "Create the guided tour" })).toBeDisabled();
+    expect(screen.getByText("Available once the current analysis finishes.")).toBeInTheDocument();
+  });
+});

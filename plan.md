@@ -174,3 +174,11 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Cursor-trail sound removed; click ticks softer and shorter
 - [x] Tests (281 backend, 140 frontend incl. StrictMode regression) + browser check with a bursty stream + E2E
 - [x] Line-by-line answers instead of the typing effect: whole lines/sentences, unrolling answer box (2026-10-13)
+- [x] Chat answers shown exactly as they stream (no typing pace, caret or line reveal) (2026-10-13)
+
+## Guided Tour on demand — ✅ Completed (2026-10-13)
+- [x] Tour skipped by normal analyses (measured: 174-239 s of model time per analysis on Qwen3-8B)
+- [x] `POST repos/{id}/analysis/tour/generate`: writes only the tour, free and shared; 409 while an analysis runs
+- [x] Status, progress, sweeper, 48 h give-up and Re-analyze count only wanted sections
+- [x] Tour tab and tour mode: "Create the guided tour" card with the time it takes; progress while written
+- [x] Tests (282 backend, frontend incl. the request card)

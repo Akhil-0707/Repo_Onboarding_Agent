@@ -8,7 +8,8 @@ RepoGuide clones and analyzes it, then produces:
   imports found in the code;
 - a **"Start Here" reading list** of the most important files, in order;
 - a **Guided Tour** that walks through the code, including a request/command flow trace, with
-  a keyboard-driven tour mode;
+  a keyboard-driven tour mode. It is the slowest section (3 to 4 minutes on Qwen3-8B), so it is
+  created on request from the Tour tab instead of during every analysis, then shared;
 - a **Glossary** of project-specific terms linked to their definitions;
 - a **Q&A chat** whose answers stream in live and cite `path:start-end` ranges that open the
   code viewer.
@@ -92,8 +93,7 @@ removed. If the output is unusable after repair, the model is told exactly why a
 summarised), must look at the code before answering, cites `[path:start-end]`; invented
 citations are stripped and only validated ones become clickable. The question is searched
 before the first model call, so most answers need a single call (on Qwen3-8B: about 19 s instead
-of 37 s for the same question); the UI shows the streamed answer line by line (whole lines and
-sentences, never half-written text).
+of 37 s for the same question); the UI shows the answer as it streams in, already formatted.
 
 ## Stack
 
@@ -185,7 +185,7 @@ The full schema is at `/api/docs/`.
 | Repositories | `repos` (list, create), `repos/{id}` (get, remove from dashboard), `repos/{id}/reanalyze` |
 | Ingestion | `repos/{id}/job`, `repos/{id}/job/stream` (SSE) |
 | Code | `repos/{id}/tree`, `repos/{id}/files?path=&start=&end=` |
-| Analysis | `repos/{id}/analysis`, `repos/{id}/analysis/{section}` |
+| Analysis | `repos/{id}/analysis`, `repos/{id}/analysis/{section}`, `repos/{id}/analysis/tour/generate` (POST: create the on-demand tour) |
 | Chat | `repos/{id}/threads` (list, create), `…/threads/{tid}` (get, rename, delete), `…/messages`, `…/messages/stream` (SSE, POST) |
 | Usage & model | `usage`, `repos/{id}/usage`, `llm/health`, `health` |
 

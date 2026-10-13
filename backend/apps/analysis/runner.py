@@ -22,7 +22,7 @@ from apps.agents.prompts import research_messages, structure_messages
 from apps.agents.structured import StructuredOutputError, generate_structured
 from apps.agents.tools import ToolContext
 from apps.analysis.models import Analysis, AnalysisStatus
-from apps.analysis.sections import SECTIONS, SectionCheckError, SectionSpec
+from apps.analysis.sections import SectionCheckError, SectionSpec, wanted_sections
 from apps.common.logging import get_logger
 from apps.ingestion.pipeline import job_is_failed
 from apps.ingestion.progress import JobReporter
@@ -115,8 +115,12 @@ class AnalysisRunner:
         ctx = ToolContext(self.repo)
         digest = build_digest(ctx)
         index = load_file_index(ctx)
-        total = len(SECTIONS)
-        for position, spec in enumerate(SECTIONS):
+        # A job may be limited to some sections (a requested tour); see _enqueue_analysis_only.
+        step = next((s for s in self.job.steps or [] if s.get("key") == STEP), {})
+        only = set(step.get("only") or [])
+        specs = [s for s in wanted_sections(self.analysis.sections) if not only or s.key in only]
+        total = len(specs)
+        for position, spec in enumerate(specs):
             if self.analysis.section_status(spec.key) == "done":
                 continue
             self.reporter.progress(STEP, position / total, f"Writing {spec.label}…")
@@ -139,13 +143,15 @@ class AnalysisRunner:
         return self._finish()
 
     def _fail_remaining(self, reason: str) -> None:
-        for spec in SECTIONS:
+        for spec in wanted_sections(self.analysis.sections):
             if self.analysis.section_status(spec.key) != "done":
                 self._set_section(spec.key, status="failed", error=reason)
         self.reporter.log(STEP, reason, level="error")
 
     def _finish(self) -> str:
-        statuses = [self.analysis.section_status(s.key) for s in SECTIONS]
+        statuses = [
+            self.analysis.section_status(s.key) for s in wanted_sections(self.analysis.sections)
+        ]
         done = statuses.count("done")
         status = (
             AnalysisStatus.DONE

@@ -17,4 +17,9 @@ urlpatterns = [
         analysis_views.AnalysisSectionView.as_view(),
         name="analysis-section",
     ),
+    path(
+        "repos/<str:repo_id>/analysis/<str:section>/generate",
+        views.GenerateSectionView.as_view(),
+        name="analysis-section-generate",
+    ),
 ]

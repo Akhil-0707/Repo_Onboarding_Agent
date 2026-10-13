@@ -115,7 +115,7 @@ def test_reanalyze_retries_only_unfinished_sections(host: Any) -> None:
     analysis = Analysis.objects.get(repository_id=repo_id)
     sections = dict(analysis.sections)
     glossary_before = sections["glossary"]
-    sections["tour"] = {"status": "failed", "error": "model gave up"}
+    sections["start_here"] = {"status": "failed", "error": "model gave up"}
     overview_updated = sections["overview"]["updated_at"]
     Analysis.objects.filter(pk=analysis.pk).update(sections=sections, status="partial")
 
@@ -127,8 +127,9 @@ def test_reanalyze_retries_only_unfinished_sections(host: Any) -> None:
 
     analysis.refresh_from_db()
     assert analysis.status == "done"
-    assert analysis.sections["tour"]["status"] == "done"
+    assert analysis.sections["start_here"]["status"] == "done"
     assert analysis.sections["overview"]["updated_at"] == overview_updated  # not redone
+    assert analysis.section_status("tour") == "pending"  # on demand: not written by a re-run
     assert analysis.sections["glossary"] == glossary_before
 
 
@@ -302,7 +303,7 @@ def test_sweeper_fails_silent_jobs_only(host: Any) -> None:
     young_queue = make_job(user, broken, "queued", minutes_ago=120)
     waiting = make_job(user, broken, "waiting_for_model", minutes_ago=600)
     sections = dict(Analysis.objects.get(repository=ready).sections)
-    sections["tour"] = {"status": "running"}
+    sections["glossary"] = {"status": "running"}
     Analysis.objects.filter(repository=ready).update(sections=sections, status="running")
     dead_analysis = make_job(user, ready, "running", minutes_ago=45)
 
@@ -325,8 +326,9 @@ def test_sweeper_fails_silent_jobs_only(host: Any) -> None:
     assert {s["key"]: s["status"] for s in dead_analysis.steps}["analyze"] == "failed"
     assert ready.status == "ready"  # the code stays browsable
     assert analysis.status == "partial"
-    assert analysis.sections["tour"]["status"] == "failed"
+    assert analysis.sections["glossary"]["status"] == "failed"
     assert analysis.sections["overview"]["status"] == "done"
+    assert "tour" not in analysis.sections  # never requested: not marked failed"
 
 
 # --- error envelope --------------------------------------------------------------------------

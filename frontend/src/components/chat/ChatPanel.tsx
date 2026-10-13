@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import {
@@ -10,9 +10,8 @@ import {
   useThread,
   useThreads,
 } from "../../api/chat";
-import type { ChatCitation, ChatMessage, ThreadDetail, ToolStep } from "../../api/chat";
+import type { ChatMessage, ThreadDetail, ToolStep } from "../../api/chat";
 import { useLLMHealth } from "../../api/health";
-import { useLineReveal } from "../../hooks/useLineReveal";
 import type { CodeRef } from "../../lib/refs";
 import { sound } from "../../lib/sound";
 import { AnswerText } from "./AnswerText";
@@ -25,12 +24,7 @@ interface Pending {
   started: boolean;
   steps: ToolStep[];
   draft: string;
-  /** The saved answer: shown once the smooth reveal has caught up with it. */
-  final: ChatMessage | null;
 }
-
-/** How long the answer box takes to ease open to new lines (matches `duration-300`). */
-const UNROLL_MS = 320;
 
 /** Three soft dots while the model is thinking. */
 function ThinkingDots() {
@@ -45,55 +39,6 @@ function ThinkingDots() {
         />
       ))}
     </span>
-  );
-}
-
-/** The answer as it streams: rendered like the final answer (no jump at the end) and shown one
- * complete line or sentence at a time; `onRevealed` fires once the whole answer is shown. */
-function StreamingAnswer({
-  text,
-  citations,
-  done,
-  onOpen,
-  onRevealed,
-}: {
-  text: string;
-  citations: ChatCitation[];
-  done: boolean;
-  onOpen: (ref: CodeRef) => void;
-  onRevealed: () => void;
-}) {
-  const { text: shown, caughtUp } = useLineReveal(text, done);
-  const inner = useRef<HTMLDivElement | null>(null);
-  const [height, setHeight] = useState<number>();
-  const visible = Boolean(shown) || caughtUp;
-
-  useEffect(() => {
-    if (!caughtUp) return;
-    const timer = window.setTimeout(onRevealed, UNROLL_MS); // let the last lines unroll first
-    return () => window.clearTimeout(timer);
-  }, [caughtUp, onRevealed]);
-
-  // The box eases open to its content, so new lines are uncovered from the top, one by one.
-  useEffect(() => {
-    const element = inner.current;
-    if (!visible || !element || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [visible]);
-
-  // Until the first line or sentence is complete, keep the thinking dots.
-  if (!visible) return <ThinkingDots />;
-  return (
-    <div
-      className="overflow-hidden transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ height }}
-    >
-      <div ref={inner}>
-        <AnswerText text={shown} citations={citations} onOpen={onOpen} animate />
-      </div>
-    </div>
   );
 }
 
@@ -158,22 +103,16 @@ export function ChatPanel({
   const content = useRef<HTMLDivElement | null>(null);
   /** Follow new text only while the reader is at the bottom; scrolling up to read stops it. */
   const stick = useRef(true);
-  /** Completes a finished answer once its reveal has caught up. */
-  const finish = useRef<(() => void) | null>(null);
-  /** A short answer can be fully revealed before the stream has closed. */
-  const revealed = useRef(false);
 
-  // While an answer is still being revealed, a refetched thread may already contain it.
-  const messages = (thread.data?.messages ?? []).filter((m) => m.id !== pending?.final?.id);
+  const messages = thread.data?.messages ?? [];
 
   const send = async (raw: string) => {
     const content = raw.trim();
     if (!content || pending || offline) return;
     setError(null);
     setInput("");
-    setPending({ question: content, started: false, steps: [], draft: "", final: null });
+    setPending({ question: content, started: false, steps: [], draft: "" });
     stick.current = true;
-    revealed.current = false;
     const controller = new AbortController();
     abort.current = controller;
     let id = threadId;
@@ -213,7 +152,6 @@ export function ChatPanel({
           onRetract: () => setPending((p) => p && { ...p, draft: "" }),
           onDone: (message) => {
             final = message;
-            setPending((p) => p && { ...p, final: message });
           },
           onError: (_code, message) => setError(message),
         },
@@ -226,28 +164,15 @@ export function ChatPanel({
       }
     } finally {
       abort.current = null;
-      const settle = () => {
-        finish.current = null;
-        if (final) append(final);
-        setPending(null);
-        if (id) void queryClient.invalidateQueries({ queryKey: chatKeys.thread(repoId, id) });
-        void queryClient.invalidateQueries({ queryKey: chatKeys.threads(repoId), exact: true });
-      };
-      const complete = () => {
+      if (final) {
+        append(final); // replaces the live draft in the same render: no jump
         sound.answerReady();
-        settle();
-      };
-      // A complete answer finishes when its reveal catches up (see StreamingAnswer).
-      if (!final || controller.signal.aborted) settle();
-      else if (revealed.current) complete();
-      else finish.current = complete;
+      }
+      setPending(null);
+      if (id) void queryClient.invalidateQueries({ queryKey: chatKeys.thread(repoId, id) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.threads(repoId), exact: true });
     }
   };
-
-  const onRevealed = useCallback(() => {
-    if (finish.current) finish.current();
-    else revealed.current = true; // the stream closes right after: complete it then
-  }, []);
 
   useEffect(() => {
     if (autoAsk && !autoAsked.current) {
@@ -382,16 +307,11 @@ export function ChatPanel({
                       onOpen={onOpen}
                     />
                   )}
-                  <div className="animate-fade-up mr-4" aria-busy={!pending.final}>
-                    <ToolSteps steps={pending.steps} live={!pending.final} />
-                    {pending.final || pending.draft ? (
-                      <StreamingAnswer
-                        text={pending.final?.content ?? pending.draft}
-                        citations={pending.final?.citations ?? []}
-                        done={Boolean(pending.final)}
-                        onOpen={onOpen}
-                        onRevealed={onRevealed}
-                      />
+                  <div className="animate-fade-up mr-4" aria-busy="true">
+                    <ToolSteps steps={pending.steps} live />
+                    {pending.draft ? (
+                      // Shown exactly as it streams in, formatted like the final answer.
+                      <AnswerText text={pending.draft} citations={[]} onOpen={onOpen} />
                     ) : (
                       <ThinkingDots />
                     )}

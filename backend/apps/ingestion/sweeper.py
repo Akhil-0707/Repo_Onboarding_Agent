@@ -14,7 +14,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.analysis.models import Analysis, AnalysisStatus
-from apps.analysis.sections import SECTIONS
+from apps.analysis.sections import wanted_sections
 from apps.common.logging import get_logger
 from apps.ingestion.pipeline import fail_job
 from apps.ingestion.progress import JobReporter, iso_now
@@ -28,11 +28,12 @@ def abandon_analysis(job: IngestionJob, message: str) -> None:
     analysis = Analysis.objects.filter(repository_id=job.repository_id).first()
     if analysis is not None:
         sections = dict(analysis.sections or {})
-        for spec in SECTIONS:
+        wanted = wanted_sections(sections)
+        for spec in wanted:
             state = sections.get(spec.key) or {}
             if state.get("status") != "done":
                 sections[spec.key] = {**state, "status": "failed", "error": message}
-        done = sum(1 for spec in SECTIONS if sections[spec.key].get("status") == "done")
+        done = sum(1 for spec in wanted if sections[spec.key].get("status") == "done")
         analysis.sections = sections
         analysis.status = AnalysisStatus.PARTIAL if done else AnalysisStatus.FAILED
         analysis.error = message

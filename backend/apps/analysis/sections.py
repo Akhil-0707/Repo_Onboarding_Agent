@@ -97,6 +97,8 @@ class SectionSpec:
     """Optional follow-up model call after repair (``data, llm, **structured_kwargs``)."""
     tools: list[str] | None = None
     max_tokens: int = 3000
+    on_demand: bool = False
+    """Not written by a normal analysis; only when a user asks for it (``request_section``)."""
 
 
 SECTIONS: list[SectionSpec] = [
@@ -126,6 +128,8 @@ SECTIONS: list[SectionSpec] = [
         check=_check_tour,
         ensure=ensure_flow_trace,
         max_tokens=4500,
+        # The slowest section (3-4 min of model time on Qwen3-8B): created when asked for.
+        on_demand=True,
     ),
     SectionSpec("glossary", "Glossary", schemas.Glossary, repair_glossary, max_tokens=3500),
 ]
@@ -135,3 +139,14 @@ SECTION_KEYS = [s.key for s in SECTIONS]
 
 def get_section(key: str) -> SectionSpec | None:
     return next((s for s in SECTIONS if s.key == key), None)
+
+
+def is_wanted(spec: SectionSpec, sections: dict[str, Any]) -> bool:
+    """Regular sections always; an on-demand one once requested (or if it already exists)."""
+    state = sections.get(spec.key) or {}
+    return not spec.on_demand or bool(state.get("requested")) or state.get("status") == "done"
+
+
+def wanted_sections(sections: dict[str, Any] | None) -> list[SectionSpec]:
+    """The sections an analysis should produce; status and progress count only these."""
+    return [spec for spec in SECTIONS if is_wanted(spec, sections or {})]

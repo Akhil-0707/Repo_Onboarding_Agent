@@ -11,6 +11,7 @@ export function SectionShell<T>({
   analysisError,
   onReanalyze,
   reanalyzing = false,
+  writingHint,
   children,
 }: {
   title: string;
@@ -21,6 +22,8 @@ export function SectionShell<T>({
   /** Retries the unfinished sections (Re-analyze). */
   onReanalyze?: () => void;
   reanalyzing?: boolean;
+  /** Shown while the section is being written, e.g. how long it usually takes. */
+  writingHint?: string;
   children: (data: T) => ReactNode;
 }) {
   const retry = onReanalyze && !reanalyzing ? onReanalyze : undefined;
@@ -80,6 +83,7 @@ export function SectionShell<T>({
         {section?.status === "running"
           ? `Writing the ${title.toLowerCase()}…`
           : "Queued for the AI analysis…"}
+        {writingHint && <span className="mt-1 block">{writingHint}</span>}
       </p>
       <Skeleton className="h-5 w-1/2" />
       <Skeleton className="h-4 w-full" />
