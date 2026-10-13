@@ -43,16 +43,6 @@ class FakeAudioContext {
     this.oscillators.push(osc);
     return osc;
   }
-  createBuffer(_channels: number, length: number) {
-    const data = new Float32Array(length);
-    return { getChannelData: () => data };
-  }
-  createBufferSource() {
-    return node({ buffer: null, loop: false, start: vi.fn() });
-  }
-  createBiquadFilter() {
-    return node({ type: "", frequency: param(), Q: param() });
-  }
 }
 
 async function unlocked() {
@@ -96,15 +86,30 @@ describe("SoundEngine", () => {
     expect(ctx.oscillators[1]!.type).toBe("sine");
   });
 
-  it("swells the whoosh with cursor speed and lets it fade", async () => {
+  it("plays one faint grain per stretch of cursor travel, never in a rush", async () => {
     const { engine, ctx } = await unlocked();
-    const trailGain = ctx.gains[1]!.gain; // [0] is the master volume
-    engine.trail(5200);
-    const [loud, fade] = trailGain.setTargetAtTime.mock.calls.map((call) => call[0] as number);
-    expect(loud).toBeCloseTo(0.05);
-    expect(fade).toBe(0);
-    engine.trail(650);
-    expect(trailGain.setTargetAtTime.mock.calls[2]![0]).toBeLessThan(0.01);
+    const fixed = () => 0.5;
+    engine.trail(40, 800, fixed);
+    expect(ctx.oscillators).toHaveLength(0); // not far enough yet
+    engine.trail(60, 800, fixed);
+    expect(ctx.oscillators).toHaveLength(1);
+    engine.trail(200, 800, fixed);
+    expect(ctx.oscillators).toHaveLength(1); // too soon after the last grain
+    ctx.currentTime = 0.1;
+    engine.trail(10, 800, fixed);
+    expect(ctx.oscillators).toHaveLength(2);
+
+    const grain = ctx.oscillators[0]!;
+    expect(grain.type).toBe("sine");
+    expect(grain.frequency.setValueAtTime.mock.calls[0]![0]).toBeCloseTo(2600);
+    // Faster strokes are a little louder, still far below a click.
+    const peak = (index: number) =>
+      ctx.gains[index]!.gain.linearRampToValueAtTime.mock.calls[0]![0];
+    ctx.currentTime = 0.3;
+    engine.trail(100, 5200, fixed);
+    expect(peak(3)).toBeGreaterThan(peak(1));
+    engine.tick("card");
+    expect(peak(4)).toBeGreaterThan(peak(3) * 2);
   });
 
   it("can be muted, remembers it, and wakes again when turned on", async () => {
@@ -187,18 +192,18 @@ describe("installSoundEffects", () => {
     expect(engine.hover).toHaveBeenCalledTimes(2);
   });
 
-  it("feeds the cursor speed to the whoosh", () => {
+  it("feeds cursor travel and speed to the trail sound", () => {
     const engine = fakeEngine();
     install(engine);
     pointer("pointermove", document.body, { clientX: 0, clientY: 0, timeStamp: 1000 });
     pointer("pointermove", document.body, { clientX: 30, clientY: 40, timeStamp: 1050 });
-    expect(engine.trail).toHaveBeenCalledWith(1000); // 50 px in 50 ms
+    expect(engine.trail).toHaveBeenCalledWith(50, 1000); // 50 px in 50 ms
   });
 });
 
 describe("volume", () => {
   it("keeps every sound behind one quiet master volume", async () => {
     const { ctx } = await unlocked();
-    expect(ctx.gains[0]!.gain.value).toBe(0.3);
+    expect(ctx.gains[0]!.gain.value).toBe(0.15);
   });
 });

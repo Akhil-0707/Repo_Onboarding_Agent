@@ -1,14 +1,17 @@
 /** Quiet UI sounds, synthesised with Web Audio (no audio files): a tick on clicks, a soft tone
- * when the pointer enters a card, and an airy whoosh that follows the cursor's speed.
+ * when the pointer enters a card, and faint "grains" as the cursor travels.
  *
  * Browsers only start audio after a user gesture, so nothing plays before the first click or
  * key press. The choice to mute is remembered per browser (`SoundToggle`). */
 
 const STORAGE_KEY = "repoguide.sound";
-const MASTER_VOLUME = 0.3; // every sound passes through this one gain
+const MASTER_VOLUME = 0.15; // every sound passes through this one gain
 /** Minimum gap between hover tones, so sweeping across a grid does not chatter. */
 const HOVER_GAP_S = 0.07;
-/** Cursor speed (px/s) at which the whoosh reaches full (still quiet) volume. */
+/** One trail grain per this much cursor travel (px), and never closer together than the gap. */
+const TRAIL_STEP_PX = 90;
+const TRAIL_GAP_S = 0.045;
+/** Cursor speed (px/s) at which grains reach their (still faint) full level. */
 const TRAIL_FULL_SPEED = 2600;
 
 export type TickKind = "tab" | "card" | "control";
@@ -33,9 +36,9 @@ function readStored(): boolean {
 export class SoundEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  private trailGain: GainNode | null = null;
-  private trailFilter: BiquadFilterNode | null = null;
   private lastHover = -Infinity;
+  private lastGrain = -Infinity;
+  private travelled = 0;
   private readonly listeners = new Set<() => void>();
   private on: boolean;
 
@@ -54,12 +57,7 @@ export class SoundEngine {
     } catch {
       // ignore: the choice just isn't remembered
     }
-    if (on) {
-      this.unlock(); // turned on from a click, which counts as the gesture
-    } else if (this.ctx && this.trailGain) {
-      this.trailGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.trailGain.gain.setValueAtTime(0, this.ctx.currentTime);
-    }
+    if (on) this.unlock(); // turned on from a click, which counts as the gesture
     this.listeners.forEach((listener) => listener());
   }
 
@@ -101,17 +99,22 @@ export class SoundEngine {
     this.envelope(osc, t, 0.05, 0.012, 0.14);
   }
 
-  /** The cursor moved at `speed` px/s: swell the whoosh, then let it fade if nothing follows. */
-  trail(speed: number): void {
+  /** The cursor moved `distance` px at `speed` px/s: every so often, one tiny high grain.
+   * Silent while the cursor rests; a little louder (never loud) when it moves fast. */
+  trail(distance: number, speed: number, random: () => number = Math.random): void {
     const ctx = this.ready();
-    if (!ctx || !this.trailGain || !this.trailFilter) return;
+    if (!ctx) return;
+    this.travelled += Math.max(0, distance);
     const t = ctx.currentTime;
+    if (this.travelled < TRAIL_STEP_PX || t - this.lastGrain < TRAIL_GAP_S) return;
+    this.travelled = 0;
+    this.lastGrain = t;
     const level = Math.min(1, Math.max(0, speed) / TRAIL_FULL_SPEED);
-    const gain = this.trailGain.gain;
-    gain.cancelScheduledValues(t);
-    gain.setTargetAtTime(level ** 1.5 * 0.05, t, 0.03);
-    gain.setTargetAtTime(0, t + 0.07, 0.09);
-    this.trailFilter.frequency.setTargetAtTime(500 + level * 2500, t, 0.05);
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    // A slightly different pitch each time, so a long stroke never sounds mechanical.
+    osc.frequency.setValueAtTime(2600 * (0.94 + random() * 0.12), t);
+    this.envelope(osc, t, 0.02 + level * 0.025, 0.002, 0.02);
   }
 
   private ready(): AudioContext | null {
@@ -123,23 +126,6 @@ export class SoundEngine {
     this.master = ctx.createGain();
     this.master.gain.value = MASTER_VOLUME;
     this.master.connect(ctx.destination);
-
-    // The whoosh: looping white noise through a band-pass filter, silent until the cursor moves.
-    const length = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-    const samples = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) samples[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
-    this.trailFilter = ctx.createBiquadFilter();
-    this.trailFilter.type = "bandpass";
-    this.trailFilter.frequency.value = 900;
-    this.trailFilter.Q.value = 0.7;
-    this.trailGain = ctx.createGain();
-    this.trailGain.gain.value = 0;
-    noise.connect(this.trailFilter).connect(this.trailGain).connect(this.master);
-    noise.start();
   }
 
   /** Plays `osc` with a fast attack and an exponential decay, then releases it. */
@@ -191,9 +177,8 @@ export function installSoundEffects(doc: Document = document, engine: SoundEngin
     if (event.pointerType === "touch" || reducedMotion?.matches) return;
     const now = event.timeStamp;
     if (last && now > last.t) {
-      const speed =
-        (Math.hypot(event.clientX - last.x, event.clientY - last.y) / (now - last.t)) * 1000;
-      engine.trail(speed);
+      const distance = Math.hypot(event.clientX - last.x, event.clientY - last.y);
+      engine.trail(distance, (distance / (now - last.t)) * 1000);
     }
     last = { x: event.clientX, y: event.clientY, t: now };
   };
