@@ -12,10 +12,14 @@ describe("revealStep", () => {
   });
 
   it("speeds up when it falls behind, more so once the answer is complete", () => {
-    const streaming = revealStep(0, 600, 16, false);
-    const finishing = revealStep(0, 600, 16, true);
-    expect(streaming).toBeCloseTo(16); // 600 chars over ~0.6 s
-    expect(finishing).toBeGreaterThan(streaming * 2);
+    const streaming = revealStep(0, 240, 16, false);
+    const finishing = revealStep(0, 240, 16, true);
+    expect(streaming).toBeCloseTo(6.4); // 240 chars over ~0.6 s
+    expect(finishing).toBeGreaterThan(streaming * 1.4);
+  });
+
+  it("never dumps a large backlog: at most ~15 characters per frame", () => {
+    expect(revealStep(0, 5000, 16, true)).toBeCloseTo(14.4);
   });
 
   it("ignores negative and very long frames", () => {
@@ -51,10 +55,40 @@ describe("useSmoothText", () => {
     expect(result.current.text.length).toBeGreaterThan(0);
     expect(result.current.caughtUp).toBe(false);
 
-    // A rewrite keeps only the shared start, then carries on to the new text.
-    rerender({ text: "Hello world", done: true });
+    // A retracted draft keeps only the shared start, then carries on to the new text.
+    rerender({ text: "Hello world", done: false });
     for (let i = 0; i < 60 && frames.length; i++) runFrame();
     expect(result.current).toEqual({ text: "Hello world", caughtUp: true });
+  });
+
+  it("swaps in the final answer in place instead of rewinding", () => {
+    let now = 0;
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => frames.push(cb));
+    const runFrame = () =>
+      act(() => {
+        now += 16;
+        frames.shift()?.(now);
+      });
+    const draft = "See `lib/a.js` for the parser and the rest of the long explanation here.";
+    const { result, rerender } = renderHook(({ text, done }) => useSmoothText(text, done), {
+      initialProps: { text: draft, done: false },
+    });
+    for (let i = 0; i < 200 && frames.length; i++) runFrame();
+    const shownBefore = result.current.text.length;
+    expect(shownBefore).toBe(draft.length);
+
+    // The server's final text differs early (a citation), so the prefix shared is short.
+    const final = "See [lib/a.js] for the parser and the rest of the long explanation here.";
+    rerender({ text: final, done: true });
+    const lengths: number[] = [];
+    for (let i = 0; i < 200 && frames.length; i++) {
+      runFrame();
+      lengths.push(result.current.text.length);
+    }
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(shownBefore - 2); // no rewind
+    expect(result.current).toEqual({ text: final, caughtUp: true });
   });
 
   it("still runs after StrictMode's mount, unmount and remount", () => {

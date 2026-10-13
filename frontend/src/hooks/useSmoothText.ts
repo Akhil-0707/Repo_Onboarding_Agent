@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 
 /** Slowest reveal speed (characters per second), so a trickle of tokens still flows. */
 const MIN_CPS = 45;
+/** Fastest reveal speed: a big backlog still flows in (~15 characters a frame), never dumps. */
+const MAX_CPS = 900;
 /** The backlog is caught up over about this long; quicker once the answer is complete. */
 const CATCH_UP_S = 0.6;
-const FINISH_S = 0.25;
+const FINISH_S = 0.4;
 const MAX_FRAME_MS = 64;
 
 /** Characters shown after one frame: the reveal speeds up when it falls behind, so bursty
@@ -12,7 +14,7 @@ const MAX_FRAME_MS = 64;
 export function revealStep(shown: number, total: number, dtMs: number, done: boolean): number {
   const backlog = total - shown;
   if (backlog <= 0) return total;
-  const cps = Math.max(MIN_CPS, backlog / (done ? FINISH_S : CATCH_UP_S));
+  const cps = Math.min(MAX_CPS, Math.max(MIN_CPS, backlog / (done ? FINISH_S : CATCH_UP_S)));
   return Math.min(total, shown + (cps * Math.min(Math.max(dtMs, 0), MAX_FRAME_MS)) / 1000);
 }
 
@@ -46,9 +48,14 @@ export function useSmoothText(target: string, done: boolean): { text: string; ca
     const step = () => {
       const now = performance.now();
       const goal = latest.current.target;
-      // If the text on screen was rewritten, keep only the part the new text still shares.
+      // The text on screen was rewritten. A retracted draft restarts from what it still shares;
+      // the final answer (citations normalised) replaces what is shown in place, no rewind.
       const keep = commonPrefixLength(visible.current, goal);
-      if (keep < visible.current.length) position.current = keep;
+      if (keep < visible.current.length) {
+        position.current = latest.current.done
+          ? Math.min(visible.current.length, goal.length)
+          : keep;
+      }
       position.current = revealStep(position.current, goal.length, now - last, latest.current.done);
       last = now;
       visible.current = goal.slice(0, Math.floor(position.current));
