@@ -260,11 +260,13 @@
   color: var(--dark) !important;
 }
 
-/* Respect the system "reduce motion" setting everywhere. */
+/* Respect the system "reduce motion" setting everywhere except inside SVG: Mermaid measures
+   diagram labels while laying out, and near-zero transition durations there made it lay
+   diagrams out ~10x too large. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *:not(svg *),
+  *:not(svg *)::before,
+  *:not(svg *)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

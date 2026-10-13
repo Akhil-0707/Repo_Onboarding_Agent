@@ -22,7 +22,9 @@ const OUT = "../docs/screenshots";
 
 test.skip(!SNAPSHOT, "Set SNAPSHOT to a file written by `manage.py export_snapshot`.");
 test.describe.configure({ mode: "serial" });
-test.use({ viewport: { width: 1440, height: 900 }, colorScheme: "light" });
+// Reduced motion: the dot background is drawn once and the cursor trail and card tilt stay off,
+// so clicks made by the spec leave no trace in the images.
+test.use({ viewport: { width: 1440, height: 900 }, colorScheme: "light", reducedMotion: "reduce" });
 
 function load(): Snapshot {
   return JSON.parse(readFileSync(SNAPSHOT ?? "", "utf-8")) as Snapshot;
@@ -76,7 +78,10 @@ async function shoot(page: Page, name: string) {
 
 test("dashboard", async ({ page }) => {
   const snapshot = load();
-  await replay(page, snapshot);
+  // Only fully analysed repositories: the exporting account may also hold unfinished runs.
+  const list = snapshot.responses["/api/repos"] as { results: { analysis_status: string }[] };
+  const done = list.results.filter((repo) => repo.analysis_status === "done");
+  await replay(page, snapshot, { "/api/repos": { ...list, count: done.length, results: done } });
   await page.goto("/dashboard");
   await expect(page.getByRole("region", { name: "Analyzed repositories" })).toContainText(
     "commander",

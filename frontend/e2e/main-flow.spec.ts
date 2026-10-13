@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { makeAnalysis } from "../src/test/fixtures";
 import { FakeApi } from "./fakeApi";
 
 test("analyse a repository, explore it, take the tour and ask a question", async ({ page }) => {
@@ -92,4 +93,44 @@ test("the chat is disabled while the model server is offline", async ({ page }) 
   const chat = page.getByRole("complementary", { name: "Chat" });
   await expect(chat.getByText(/The AI model is offline/)).toBeVisible();
   await expect(chat.getByLabel("Ask a question")).toBeDisabled();
+});
+
+test("the architecture diagram keeps its size with reduced motion", async ({ page }) => {
+  // Near-zero transition durations on SVG content once made Mermaid lay diagrams out ~10x
+  // too large, so the boxes shrank to a few pixels (needs a graph with edges and labels).
+  const api = new FakeApi();
+  api.repoStatus = "ready";
+  await api.install(page);
+  const analysis = makeAnalysis();
+  analysis.sections.architecture.data!.mermaid = [
+    "flowchart TD",
+    '    m_test["Test Suite"]',
+    '    m_util["Utility Functions"]',
+    '    m_app(["Application"])',
+    '    m_core["Core"]',
+    '    m_opts["Options"]',
+    '    m_help["Help"]',
+    '    m_test -->|"uses"| m_util',
+    '    m_test -.->|"100 imports"| m_app',
+    "    m_util -.-> m_app",
+    "    m_app -.-> m_core",
+    "    m_core -.-> m_opts",
+    "    m_core -.-> m_help",
+    "    m_app -.-> m_opts",
+    "    classDef entry fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b",
+    "    class m_app entry",
+  ].join("\n");
+  await page.route("**/api/repos/repo1/analysis", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify(analysis) }),
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  await page.goto("/repos/repo1?tab=architecture");
+  const node = page
+    .getByRole("img", { name: /Architecture diagram/ })
+    .locator("svg g.node")
+    .first();
+  await expect(node).toBeVisible();
+  const box = await node.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThan(80); // ~128 px when laid out correctly, ~36 px when broken
 });

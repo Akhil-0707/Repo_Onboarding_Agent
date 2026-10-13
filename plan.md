@@ -154,3 +154,8 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Cursor trace: 60% shorter, dimmer, one smooth ribbon
 - [x] Tests (122 frontend, coverage floors met) + E2E main flow
 - [x] Architecture diagram: import arrows labelled only for strong links (5+); stored diagrams re-rendered by the API
+
+## README screenshots (current design) — ✅ Completed (2026-10-13)
+- [x] Fresh snapshot of commander.js (Qwen3-8B) replayed in the real UI; all six images re-shot and checked
+- [x] Screenshot spec: reduced motion (no cursor effects in the shots), dashboard limited to fully analysed repos
+- [x] Fixed: architecture diagrams laid out ~10x too large with reduced motion (CSS reset skips SVG) + E2E regression test
