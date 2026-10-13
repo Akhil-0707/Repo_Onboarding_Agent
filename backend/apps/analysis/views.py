@@ -8,6 +8,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.agents.mermaid import render_mermaid
 from apps.analysis.models import Analysis
 from apps.analysis.sections import SECTIONS, get_section
 from apps.common.errors import NotFoundError
@@ -35,11 +36,16 @@ class AnalysisSerializer(serializers.Serializer):
 
 def section_payload(analysis: Analysis | None, key: str) -> dict[str, Any]:
     state = ((analysis.sections if analysis else {}) or {}).get(key) or {}
+    data = state.get("data")
+    if key == "architecture" and isinstance(data, dict) and data.get("modules"):
+        # Re-render from the verified graph so stored analyses follow renderer changes
+        # (deterministic and cheap; the stored copy is left as it is).
+        data = {**data, "mermaid": render_mermaid(data)}
     return {
         "status": state.get("status", "pending"),
         "error": state.get("error", ""),
         "updated_at": state.get("updated_at"),
-        "data": state.get("data"),
+        "data": data,
     }
 
 

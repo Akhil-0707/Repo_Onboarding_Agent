@@ -116,6 +116,7 @@ def test_mermaid_is_deterministic_and_sanitised() -> None:
             {"source": "end", "target": "db", "label": "click href javascript:alert(1)"},
             {"source": "db", "target": "pay", "label": None},
             {"source": "end", "target": "pay", "derived": True, "imports": 3},
+            {"source": "db", "target": "end", "derived": True, "imports": 12},
             {"source": "end", "target": "ghost", "label": "dropped"},
         ],
     }
@@ -128,7 +129,8 @@ def test_mermaid_is_deterministic_and_sanitised() -> None:
         '    m_pay{{"Payments"}}',
         '    m_end -->|"click href javascript:alert(1)"| m_db',
         "    m_db --> m_pay",
-        '    m_end -.->|"3 imports"| m_pay',
+        "    m_end -.-> m_pay",  # weak coupling: no label
+        '    m_db -.->|"12 imports"| m_end',
         "    classDef data fill:#fef3c7,stroke:#d97706,color:#451a03",
         "    classDef entry fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b",
         "    classDef external fill:#f5f5f4,stroke:#78716c,color:#1c1917,stroke-dasharray:4 3",
@@ -343,4 +345,26 @@ def test_architecture_repair_and_render_are_idempotent(index: FileIndex) -> None
     repair_architecture(data, index)  # e.g. re-applying newer repair rules to stored output
     assert data == once
     assert render_mermaid(data) == first
-    assert '-.->|"1 import"|' in first  # derived edges stay dashed and labelled
+    assert "-.-> m_" in first  # derived edges stay dashed (weak ones unlabelled)
+
+
+def test_api_serves_diagrams_rendered_by_the_current_renderer() -> None:
+    from apps.analysis.models import Analysis
+    from apps.analysis.views import section_payload
+
+    data = {
+        "modules": [module("api", ["src/api/"]), module("core", ["src/core/"])],
+        "edges": [{"source": "api", "target": "core", "derived": True, "imports": 1}],
+        "mermaid": 'flowchart LR\n    m_api -.->|"1 import"| m_core',  # stored by an older renderer
+    }
+    state = {"status": "done", "error": "", "updated_at": None, "data": data}
+    analysis = Analysis(sections={"architecture": state, "glossary": state})
+
+    served = section_payload(analysis, "architecture")["data"]
+    assert served["mermaid"] == render_mermaid(data)
+    assert "1 import" not in served["mermaid"]
+    assert data["mermaid"].endswith('|"1 import"| m_core')  # the stored copy is untouched
+    # Other sections, and architectures without modules, are served as stored.
+    assert section_payload(analysis, "glossary")["data"] is data
+    empty = Analysis(sections={"architecture": {"status": "failed", "data": None}})
+    assert section_payload(empty, "architecture")["data"] is None

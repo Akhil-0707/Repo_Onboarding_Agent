@@ -153,3 +153,4 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Opaque dark surfaces (no background lines through cards/diagrams); graphite code highlight; full-width header in the workspace
 - [x] Cursor trace: 60% shorter, dimmer, one smooth ribbon
 - [x] Tests (122 frontend, coverage floors met) + E2E main flow
+- [x] Architecture diagram: import arrows labelled only for strong links (5+); stored diagrams re-rendered by the API

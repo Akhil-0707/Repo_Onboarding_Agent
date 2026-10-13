@@ -4,7 +4,7 @@ Living document. Update after every meaningful step. A fresh session should be a
 
 ## Current status
 
-- **Phases 1–9 are done**, plus every follow-up below. Nothing is in progress and nothing is waiting on the developer. Last commit: see `git log -1` (at the time of writing `a224e9a`, the UI redesign; CI green).
+- **Phases 1–9 are done**, plus every follow-up below. Nothing is in progress and nothing is waiting on the developer. Last commit: see `git log -1` (pushed 2026-10-13: UI/UX pass, cursor effects, live background, cleaner architecture labels).
 - **UI (2026-10-12): "Graphite" redesign.** Monochrome slate gradient chosen by the developer, **dark theme by default**, minimal surfaces, CSS-only transitions (reduced-motion aware), Mermaid diagrams recoloured client-side. README screenshots show the new design. Details: Key decisions (UI theme, Mermaid rows).
 - **Model:** the Kaggle vLLM server (`Qwen/Qwen3-8B`, 2× T4) through a cloudflared quick tunnel. The URL **changes every Kaggle session**; the current one is `https://indoor-orbit-airport-coated.trycloudflare.com/v1` (2026-10-12, set with `set_llm_url`, online) and is dead once the notebook stops. Kaggle notebook version `2026-10-03.3`.
 - **`.env`** (gitignored, created by the developer; never print or commit it) holds `LLM_API_KEY` (= Kaggle secret `VLLM_API_KEY`) and `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` of the developer's local OAuth App "RepoGuide (local)" (callback `http://localhost:5173/api/auth/github/callback`). Everything else uses defaults.
@@ -104,7 +104,7 @@ Settings are read in `backend/config/settings/base.py` via the `env*` helpers.
 | TypeScript **6.0.x** (not 7) | typescript-eslint 8.71 supports TS < 6.1 |
 | Embeddings: `BAAI/bge-small-en-v1.5` on CPU (Phase 4) | Fast, no `trust_remote_code`; hybrid search compensates |
 | Architecture map: model outputs a JSON graph (modules + edges), server verifies paths and renders Mermaid (`apps/agents/mermaid.py`, labels sanitised, node ids prefixed `m_`) | Small models write invalid Mermaid; repo text can't inject Mermaid/HTML |
-| Architecture edges seeded from `dependency_edges` aggregated to modules (dashed "N imports" edges); model edges get an `imports` count as evidence | The map reflects the real code even when the model misses links |
+| Architecture edges seeded from `dependency_edges` aggregated to modules (dashed edges, labelled "N imports" only from `LABEL_MIN_IMPORTS` = 5; every count is listed in the module cards); model edges get an `imports` count as evidence. The API re-renders the Mermaid from the stored graph on every read (`section_payload`), so renderer changes reach stored analyses without re-running the model | The map reflects the real code even when the model misses links; "1 import" on nearly every arrow buried the diagram (commander.js: 17 labels → 1) |
 | Default-kinded modules get an inferred kind (tests/utils/docs/data/config/ui by name; the module owning the main entry point becomes `entry`) | Small models label everything `core` |
 | Flow trace enforced after repair by `ensure_flow_trace`: if no stop is labelled, the model picks which of its own stops form the trace (tiny JSON), else the tour is re-prompted | Real run: the 4B model rewrote a whole tour 3x (~100 s each) and never added the label; the pick takes ~2 s |
 | `generate_structured(accept=...)`: reference repair + section checks run inside the retry loop; `SectionCheckError` (an `OutputRejectedError`) is fed back to the model | Unusable output gets fixed instead of failing the section |
@@ -223,6 +223,7 @@ Later candidates: chat answers in dedicated workers if load grows; an always-on 
 - Running `docker-compose.prod.yml` locally next to the dev stack: put throwaway values in a file outside the repo and use `ENV_FILE=<file> docker compose --env-file <file> -f docker-compose.prod.yml ...` with `HTTP_PORT=8088` in that file; the smoke test then needs `HTTP_PORT=8088 COMPOSE="docker compose --env-file <file> -f docker-compose.prod.yml"` (and `MSYS_NO_PATHCONV=1` in Git Bash). `down -v` removes its volumes.
 
 ## Progress log
+- 2026-10-13: Architecture diagrams: import arrows labelled only for 5+ imports (commander.js 17 labels → 1); the API re-renders stored diagrams on read. 280 backend tests (incl. Mongo), 122 frontend. Pushed to origin.
 - 2026-10-13: Stack pointed at a new Kaggle tunnel. UI/UX pass from a real-app audit (see Key decisions, "UI/UX pass"); cursor trace shortened 60% (260 ms), dimmer, redrawn as one smooth ribbon (no dots at joints). 122 frontend tests, coverage floors met, E2E main flow green locally. README screenshots not re-shot.
 - 2026-10-12: Cursor spotlight on surfaces, smooth 3D tilt on clickable cards, live dot background with a cursor trace (brightened on request), dark base changed to black. 114 frontend tests; verified with Playwright screenshots of the running app. README screenshots still show the slate-950 base (not re-shot).
 - 2026-10-12: Animations and transitions slowed ~1.5x (entrances 320-480 ms, list stagger 65 ms steps, hovers 200-300 ms, tab underline 450 ms); progress bars unchanged. 97 frontend tests green.

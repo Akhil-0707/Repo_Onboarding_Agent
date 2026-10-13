@@ -64,7 +64,8 @@ export function ArchitectureSection({
         />
         <figcaption className="mt-3 text-xs text-slate-500">
           Solid arrows are relationships described by the AI; dashed arrows are imports found in the
-          code. Click a box to see its files.
+          code, with counts shown for strong links (5 or more). Every count is listed under Modules.
+          Click a box to see its files.
         </figcaption>
       </figure>
 

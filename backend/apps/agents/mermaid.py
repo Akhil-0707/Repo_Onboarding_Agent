@@ -39,6 +39,10 @@ _UNSAFE = re.compile(r"[\"<>{}\[\]|`#;&\\]")
 _SPACE = re.compile(r"\s+")
 _ID = re.compile(r"[^a-z0-9_]")
 
+# Import-derived edges are labelled only when the coupling is strong; a "1 import" label on most
+# arrows buried the diagram. Exact counts stay in the module list under the diagram.
+LABEL_MIN_IMPORTS = 5
+
 
 def sanitize_label(text: str | None, limit: int = 48) -> str:
     text = _SPACE.sub(" ", _UNSAFE.sub("", (text or "").replace('"', "'"))).strip()
@@ -68,8 +72,10 @@ def render_mermaid(data: dict[str, Any]) -> str:
             continue
         if edge.get("derived"):
             count = edge.get("imports", 0)
-            text = f"{count} import{'s' if count != 1 else ''}" if count else "imports"
-            lines.append(f'    {source} -.->|"{text}"| {target}')
+            if count >= LABEL_MIN_IMPORTS:
+                lines.append(f'    {source} -.->|"{count} imports"| {target}')
+            else:
+                lines.append(f"    {source} -.-> {target}")
         else:
             label = sanitize_label(edge.get("label"), limit=32)
             arrow = f'-->|"{label}"|' if label else "-->"
