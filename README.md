@@ -92,7 +92,8 @@ removed. If the output is unusable after repair, the model is told exactly why a
 summarised), must look at the code before answering, cites `[path:start-end]`; invented
 citations are stripped and only validated ones become clickable. The question is searched
 before the first model call, so most answers need a single call (on Qwen3-8B: about 19 s instead
-of 37 s for the same question); the UI reveals the streamed text at an even pace.
+of 37 s for the same question); the UI shows the streamed answer line by line (whole lines and
+sentences, never half-written text).
 
 ## Stack
 

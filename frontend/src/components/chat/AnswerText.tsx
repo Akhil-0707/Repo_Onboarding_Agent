@@ -61,17 +61,24 @@ function inline(
   return nodes;
 }
 
+// While an answer streams in line by line, each newly shown line fades in (on mount only).
+const LINE_IN = "animate-line-in";
+const INLINE_IN = "animate-fade-in";
+
 function Prose({
   text,
   known,
   onOpen,
   keyPrefix,
+  animate,
 }: {
   text: string;
   known: Set<string>;
   onOpen: (ref: CodeRef) => void;
   keyPrefix: string;
+  animate: boolean;
 }) {
+  const fade = animate ? LINE_IN : undefined;
   const blocks = text.split(/\n\s*\n/).filter((block) => block.trim());
   return (
     <>
@@ -82,7 +89,7 @@ function Prose({
           return (
             <ul key={key} className="ml-5 list-disc">
               {lines.map((line, i) => (
-                <li key={i}>
+                <li key={i} className={fade}>
                   {inline(line.replace(/^\s*[-*]\s+/, ""), known, onOpen, `${key}-${i}`)}
                 </li>
               ))}
@@ -95,7 +102,7 @@ function Prose({
           return (
             <ol key={key} start={start} className="ml-5 list-decimal">
               {lines.map((line, i) => (
-                <li key={i}>
+                <li key={i} className={fade}>
                   {inline(line.replace(/^\s*\d+[.)]\s+/, ""), known, onOpen, `${key}-${i}`)}
                 </li>
               ))}
@@ -105,15 +112,15 @@ function Prose({
         const heading = /^#{1,6}\s+(.*)$/.exec(lines[0] ?? "");
         if (heading && lines.length === 1) {
           return (
-            <p key={key} className="font-semibold">
+            <p key={key} className={`font-semibold ${fade ?? ""}`}>
               {inline(heading[1] ?? "", known, onOpen, key)}
             </p>
           );
         }
         return (
-          <p key={key}>
+          <p key={key} className={fade}>
             {lines.map((line, i) => (
-              <span key={i}>
+              <span key={i} className={animate && i > 0 ? INLINE_IN : undefined}>
                 {i > 0 && <br />}
                 {inline(line, known, onOpen, `${key}-${i}`)}
               </span>
@@ -130,10 +137,13 @@ export function AnswerText({
   text,
   citations,
   onOpen,
+  animate = false,
 }: {
   text: string;
   citations: ChatCitation[];
   onOpen: (ref: CodeRef) => void;
+  /** Fade in lines as they are added (live answers). */
+  animate?: boolean;
 }) {
   const known = new Set(citations.map((c) => citationKey(c.path, c.start_line, c.end_line)));
   const parts: ReactNode[] = [];
@@ -147,13 +157,14 @@ export function AnswerText({
           known={known}
           onOpen={onOpen}
           keyPrefix={`p${last}`}
+          animate={animate}
         />,
       );
     }
     parts.push(
       <pre
         key={`c${match.index}`}
-        className="overflow-x-auto rounded-md bg-slate-100 p-3 font-mono text-xs dark:bg-slate-800"
+        className={`overflow-x-auto rounded-md bg-slate-100 p-3 font-mono text-xs dark:bg-slate-800 ${animate ? LINE_IN : ""}`}
       >
         <code>{(match[1] ?? "").replace(/\n$/, "")}</code>
       </pre>,
@@ -168,6 +179,7 @@ export function AnswerText({
         known={known}
         onOpen={onOpen}
         keyPrefix={`p${last}`}
+        animate={animate}
       />,
     );
   }

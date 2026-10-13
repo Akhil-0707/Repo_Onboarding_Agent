@@ -15,6 +15,7 @@
   --animate-slide-in-right: slide-in-right 450ms var(--ease-soft) both;
   --animate-pop-in: pop-in 220ms var(--ease-soft) both;
   --animate-dot: dot 1.2s ease-in-out infinite;
+  --animate-line-in: fade-up 420ms var(--ease-soft) both;
 
   @keyframes page-in {
     from {

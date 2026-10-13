@@ -173,3 +173,4 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Thinking dots, stick-to-bottom auto-scroll, transparent chat panel, soft arrival chime
 - [x] Cursor-trail sound removed; click ticks softer and shorter
 - [x] Tests (281 backend, 140 frontend incl. StrictMode regression) + browser check with a bursty stream + E2E
+- [x] Line-by-line answers instead of the typing effect: whole lines/sentences, unrolling answer box (2026-10-13)

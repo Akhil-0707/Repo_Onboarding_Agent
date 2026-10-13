@@ -12,7 +12,7 @@ import {
 } from "../../api/chat";
 import type { ChatCitation, ChatMessage, ThreadDetail, ToolStep } from "../../api/chat";
 import { useLLMHealth } from "../../api/health";
-import { useSmoothText } from "../../hooks/useSmoothText";
+import { useLineReveal } from "../../hooks/useLineReveal";
 import type { CodeRef } from "../../lib/refs";
 import { sound } from "../../lib/sound";
 import { AnswerText } from "./AnswerText";
@@ -28,6 +28,9 @@ interface Pending {
   /** The saved answer: shown once the smooth reveal has caught up with it. */
   final: ChatMessage | null;
 }
+
+/** How long the answer box takes to ease open to new lines (matches `duration-300`). */
+const UNROLL_MS = 320;
 
 /** Three soft dots while the model is thinking. */
 function ThinkingDots() {
@@ -45,8 +48,8 @@ function ThinkingDots() {
   );
 }
 
-/** The answer as it streams: rendered like the final answer (no jump at the end) and revealed
- * at an even pace; `onRevealed` fires once the complete answer is fully shown. */
+/** The answer as it streams: rendered like the final answer (no jump at the end) and shown one
+ * complete line or sentence at a time; `onRevealed` fires once the whole answer is shown. */
 function StreamingAnswer({
   text,
   citations,
@@ -60,12 +63,38 @@ function StreamingAnswer({
   onOpen: (ref: CodeRef) => void;
   onRevealed: () => void;
 }) {
-  const { text: shown, caughtUp } = useSmoothText(text, done);
-  const finished = done && caughtUp;
+  const { text: shown, caughtUp } = useLineReveal(text, done);
+  const inner = useRef<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState<number>();
+  const visible = Boolean(shown) || caughtUp;
+
   useEffect(() => {
-    if (finished) onRevealed();
-  }, [finished, onRevealed]);
-  return <AnswerText text={finished ? shown : `${shown}▍`} citations={citations} onOpen={onOpen} />;
+    if (!caughtUp) return;
+    const timer = window.setTimeout(onRevealed, UNROLL_MS); // let the last lines unroll first
+    return () => window.clearTimeout(timer);
+  }, [caughtUp, onRevealed]);
+
+  // The box eases open to its content, so new lines are uncovered from the top, one by one.
+  useEffect(() => {
+    const element = inner.current;
+    if (!visible || !element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  // Until the first line or sentence is complete, keep the thinking dots.
+  if (!visible) return <ThinkingDots />;
+  return (
+    <div
+      className="overflow-hidden transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{ height }}
+    >
+      <div ref={inner}>
+        <AnswerText text={shown} citations={citations} onOpen={onOpen} animate />
+      </div>
+    </div>
+  );
 }
 
 function MessageView({
