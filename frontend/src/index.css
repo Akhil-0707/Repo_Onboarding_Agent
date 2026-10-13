@@ -150,7 +150,7 @@
   @apply w-full rounded-[0.625rem] bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-900/10 transition-shadow duration-300 ring-inset placeholder:text-slate-400 hover:ring-slate-900/20 focus:ring-2 focus:ring-slate-900 focus:outline-none dark:bg-white/5 dark:ring-white/10 dark:placeholder:text-slate-500 dark:hover:ring-white/20 dark:focus:ring-slate-200;
 }
 
-/* Surfaces: hairline rings instead of borders; interactive ones lift slightly on hover.
+/* Surfaces: hairline rings instead of borders; cards (`surface-hover`) tilt and lift on hover.
    A spotlight follows the cursor (position from lib/pointerEffects.ts): ::before lights the
    fill behind the content, ::after lights the edge through a ring-shaped mask. */
 @utility surface {

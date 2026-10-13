@@ -17,7 +17,7 @@ export function StartHereSection({
       </p>
       <ol className="stagger flex flex-col gap-3" aria-label="Reading list">
         {data.files.map((file, index) => (
-          <li key={file.path} className="flex gap-4 surface p-4">
+          <li key={file.path} className="flex gap-4 surface surface-hover p-4">
             <span
               aria-hidden="true"
               className="bg-brand flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold"

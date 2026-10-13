@@ -42,7 +42,7 @@ export function GlossarySection({
       ) : (
         <dl className="stagger grid gap-3 lg:grid-cols-2">
           {terms.map((term) => (
-            <div key={term.term} className="surface p-4">
+            <div key={term.term} className="surface surface-hover p-4">
               <dt className="flex flex-wrap items-center gap-2">
                 <span className="font-mono font-semibold">{term.term}</span>
                 <span className="rounded-full bg-slate-900/[0.05] px-2 py-0.5 text-xs text-slate-600 dark:bg-white/[0.07] dark:text-slate-300">

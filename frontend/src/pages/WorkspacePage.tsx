@@ -47,7 +47,7 @@ function Stat({
 }) {
   return (
     <div
-      className="animate-fade-up rounded-xl bg-white p-4 ring-1 ring-slate-900/[0.06] dark:bg-neutral-950 dark:ring-white/[0.08]"
+      className="surface surface-hover animate-fade-up p-4"
       style={{ animationDelay: `${index * 75}ms` }}
     >
       <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>

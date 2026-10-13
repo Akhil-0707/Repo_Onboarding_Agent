@@ -144,6 +144,7 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Live background: drifting, linked dots pushed aside by the cursor; fading cursor trace
 - [x] Dots brightened; dark theme base changed to black
 - [x] Touch and reduced-motion fallbacks; tests (114 frontend); checked in the running app
+- [x] Workspace tiles use the same tilting card as the homepage (2026-10-13)
 
 ## UI/UX pass — ✅ Completed (2026-10-13)
 - [x] Audit of the real app (signed-in test user, desktop + phone width)

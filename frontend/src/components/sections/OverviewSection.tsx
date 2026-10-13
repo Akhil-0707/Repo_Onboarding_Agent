@@ -52,10 +52,7 @@ export function OverviewSection({
         </h3>
         <ul className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.tech_stack.map((item) => (
-            <li
-              key={item.name}
-              className="rounded-xl bg-white p-4 ring-1 ring-slate-900/[0.06] transition-colors duration-300 hover:bg-slate-50 dark:bg-neutral-950 dark:ring-white/[0.08] dark:hover:bg-neutral-900"
-            >
+            <li key={item.name} className="surface surface-hover p-4">
               <p className="font-medium">{item.name}</p>
               <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
                 <RichText text={item.role} />
