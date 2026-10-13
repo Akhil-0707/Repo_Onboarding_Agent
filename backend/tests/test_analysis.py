@@ -299,12 +299,23 @@ def test_guided_tour_is_created_only_when_asked_for() -> None:
 
     llm = FakeAnalysisLLM()
     set_llm_client(llm)
+    bus = InMemoryEventBus()
+    set_event_bus(bus)
     response = client.post(f"/api/repos/{repo.pk}/analysis/tour/generate")
     assert response.status_code == 201 and response.json()["created"] is True
     job = IngestionJob.objects.get(pk=response.json()["job"]["id"])
     assert job.status == "done"
     assert {s["key"]: s["status"] for s in job.steps}["clone"] == "done"  # no re-ingestion
     assert llm.sections_answered == ["tour"]  # only the tour was written
+    # The progress card follows the phases as they stream: research, writing, checking.
+    phases = [
+        event["phase"]
+        for _, event in bus.published
+        if event.get("type") == "step" and event.get("key") == "analyze" and "phase" in event
+    ]
+    assert phases[0] == "research" and phases[-1] == "checking"
+    assert phases.index("writing") < phases.index("checking")
+    assert [p for p in dict.fromkeys(phases)] == ["research", "writing", "checking"]
 
     analysis = Analysis.objects.get(repository=repo)
     assert analysis.status == "partial"  # the glossary is still missing

@@ -125,7 +125,7 @@ describe("TourPage", () => {
     analysis.sections.tour = { status: "running", error: "", updated_at: null, data: null };
     mockBackend(analysis);
     renderTour();
-    expect(await screen.findByText("Writing the guided tour…")).toBeInTheDocument();
+    expect(await screen.findByText("Creating your guided tour")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Back to workspace" })).toBeInTheDocument();
   });
 });

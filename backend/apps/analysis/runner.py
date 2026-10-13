@@ -36,6 +36,12 @@ logger = get_logger(__name__)
 
 STEP = "analyze"
 
+# Share of a section's progress at each phase: research (tool calls) runs up to RESEARCH_SHARE,
+# then the structured answer is written, then its references are checked.
+RESEARCH_SHARE = 0.55
+WRITING_AT = 0.6
+CHECKING_AT = 0.9
+
 
 def model_available() -> bool:
     return check_llm_health(force=True).online
@@ -65,6 +71,8 @@ class AnalysisRunner:
             used=self.usage.prompt_tokens + self.usage.completion_tokens,
         )
         self.agent_logger = AgentLogger(str(self.repo.pk), scope="analysis", run_id=self.job_id)
+        self._position = 0
+        self._total = 1
 
     # --- persistence ----------------------------------------------------------------------
     def _save(self, **fields: Any) -> None:
@@ -120,10 +128,12 @@ class AnalysisRunner:
         only = set(step.get("only") or [])
         specs = [s for s in wanted_sections(self.analysis.sections) if not only or s.key in only]
         total = len(specs)
+        self._total = max(1, total)
         for position, spec in enumerate(specs):
             if self.analysis.section_status(spec.key) == "done":
                 continue
-            self.reporter.progress(STEP, position / total, f"Writing {spec.label}…")
+            self._position = position
+            self._phase("research", 0.0, f"Writing {spec.label}…")
             try:
                 self._run_section(spec, ctx, digest, index)
             except ModelOfflineError as exc:
@@ -169,6 +179,10 @@ class AnalysisRunner:
         self.reporter.finish(JobStatus.DONE)
         return str(status)
 
+    def _phase(self, phase: str, within: float, message: str = "") -> None:
+        """Where the current section is (research / writing / checking), streamed to the UI."""
+        self.reporter.progress(STEP, (self._position + within) / self._total, message, phase=phase)
+
     # --- one section ---------------------------------------------------------------------
     def _run_section(
         self, spec: SectionSpec, ctx: ToolContext, digest: str, index: FileIndex
@@ -197,6 +211,8 @@ class AnalysisRunner:
             def on_step(msgs: list[dict[str, Any]]) -> None:
                 iteration["n"] += 1
                 self._checkpoint(spec.key, "research", messages=msgs, iteration=iteration["n"])
+                done = min(1.0, iteration["n"] / max(1, settings.ANALYSIS_MAX_ITERATIONS))
+                self._phase("research", RESEARCH_SHARE * done)
 
             loop = AgentLoop(
                 self.llm,
@@ -223,6 +239,7 @@ class AnalysisRunner:
 
         def accept(output: BaseModel) -> None:
             # Verify references now so unusable output is sent back to the model for a fix.
+            self._phase("checking", CHECKING_AT)
             data = output.model_dump(mode="json")
             report = spec.repair(data, index)
             if spec.ensure:
@@ -234,6 +251,7 @@ class AnalysisRunner:
                 spec.check(data)
             result.update(data=data, report=report)
 
+        self._phase("writing", WRITING_AT)
         generate_structured(
             self.llm,
             structure_messages(spec.key, digest, notes, spec.schema, **spec.params(ctx)),

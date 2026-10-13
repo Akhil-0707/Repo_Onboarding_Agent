@@ -128,10 +128,11 @@ class JobReporter:
         )
         self._publish({"type": "log", "key": key, **entry})
 
-    def progress(self, key: str, fraction: float, message: str = "") -> None:
+    def progress(self, key: str, fraction: float, message: str = "", **extra: Any) -> None:
+        """``extra`` fields are stored on the step and streamed (e.g. the analysis ``phase``)."""
         fraction = max(0.0, min(1.0, fraction))
         self._done[key] = fraction
-        fields: dict[str, Any] = {"progress": int(fraction * 100)}
+        fields: dict[str, Any] = {"progress": int(fraction * 100), **extra}
         if message:
             fields["message"] = message
         self._set_step(key, fields)

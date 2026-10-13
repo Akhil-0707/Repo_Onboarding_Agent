@@ -18,6 +18,8 @@ export interface JobStep {
   started_at: string | null;
   finished_at: string | null;
   logs: LogEntry[];
+  /** Analysis only: which part of the current section the model is on. */
+  phase?: "research" | "writing" | "checking";
 }
 
 export interface JobSummary {

@@ -400,7 +400,8 @@ describe("Guided Tour on demand", () => {
       String(url).endsWith("/analysis/tour/generate"),
     );
     expect(post?.[1]?.method).toBe("POST");
-    expect(await screen.findByText(/usually takes 3 to 4 minutes/)).toBeInTheDocument();
+    expect(await screen.findByText("Creating your guided tour")).toBeInTheDocument();
+    expect(screen.getByText(/usually 3 to 4 minutes/)).toBeInTheDocument();
   });
 
   it("waits for a running analysis before the tour can be asked for", async () => {

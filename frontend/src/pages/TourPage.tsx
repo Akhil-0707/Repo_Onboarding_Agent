@@ -5,6 +5,7 @@ import { useAnalysis } from "../api/analysis";
 import { useRepository } from "../api/repos";
 import { CodeViewer } from "../components/CodeViewer";
 import { SectionShell } from "../components/sections/SectionShell";
+import { TourProgress } from "../components/sections/TourProgress";
 import { TourRequest } from "../components/sections/TourRequest";
 import { TourKindBadge } from "../components/sections/TourSection";
 import { ErrorState, LoadingState } from "../components/StateViews";
@@ -192,6 +193,8 @@ export function TourPage() {
       )}
       {analysis.data.sections.tour.status === "not_requested" ? (
         <TourRequest repoId={repoId} analysisStatus={analysis.data.status} />
+      ) : ["pending", "running"].includes(analysis.data.sections.tour.status) ? (
+        <TourProgress repoId={repoId} />
       ) : (
         <SectionShell
           title="Guided Tour"

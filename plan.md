@@ -182,3 +182,4 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Status, progress, sweeper, 48 h give-up and Re-analyze count only wanted sections
 - [x] Tour tab and tour mode: "Create the guided tour" card with the time it takes; progress while written
 - [x] Tests (282 backend, frontend incl. the request card)
+- [x] Live progress card while the tour is written: stages, current file, eased bar, elapsed time (2026-10-14)

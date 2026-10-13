@@ -15,6 +15,7 @@ import { GlossarySection } from "../components/sections/GlossarySection";
 import { OverviewSection } from "../components/sections/OverviewSection";
 import { SectionShell } from "../components/sections/SectionShell";
 import { StartHereSection } from "../components/sections/StartHereSection";
+import { TourProgress } from "../components/sections/TourProgress";
 import { TourRequest } from "../components/sections/TourRequest";
 import { TourSection } from "../components/sections/TourSection";
 import { StatusBadge } from "../components/StatusBadge";
@@ -31,6 +32,11 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+
+/** A requested tour that is queued or being written (it shows live progress). */
+function isWriting(status: string | undefined): boolean {
+  return status === "pending" || status === "running";
+}
 
 const TOUR_WRITING_HINT =
   "A tour usually takes 3 to 4 minutes. You can keep browsing; it appears here when it is ready.";
@@ -425,6 +431,8 @@ export function WorkspacePage() {
                 {tab === "tour" &&
                   (analysis.data?.sections.tour.status === "not_requested" ? (
                     <TourRequest repoId={repoId} analysisStatus={analysis.data.status} />
+                  ) : isWriting(analysis.data?.sections.tour.status) ? (
+                    <TourProgress repoId={repoId} />
                   ) : (
                     <SectionShell
                       title="Guided Tour"
