@@ -115,6 +115,10 @@ describe("ChatPanel", () => {
     expect(post?.body).toEqual({ content: "Where are users stored?" });
     expect(calls.some((c) => c.url.endsWith("/threads") && c.method === "POST")).toBe(true);
 
+    // The answer is revealed smoothly, then settles into the conversation with its chips.
+    await waitFor(() => expect(document.querySelector("[aria-busy]")).toBeNull(), {
+      timeout: 3000,
+    });
     await userEvent.click(screen.getByRole("button", { name: /app\/services\.py:10-20/ }));
     expect(onOpen).toHaveBeenCalledWith({
       path: "app/services.py",

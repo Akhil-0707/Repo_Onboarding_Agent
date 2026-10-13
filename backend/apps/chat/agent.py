@@ -9,6 +9,7 @@ for each validated reference, then ``done`` with the saved message, or ``error``
 from __future__ import annotations
 
 import itertools
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -32,6 +33,7 @@ from apps.common.logging import get_logger
 from apps.llm.client import LLMClient, get_llm_client
 from apps.llm.errors import LLMRequestError, ModelOfflineError
 from apps.llm.types import Message as LLMMessage
+from apps.llm.types import ToolCall
 
 logger = get_logger(__name__)
 
@@ -50,7 +52,11 @@ answer from general knowledge about similar projects.
 shown by the tools, e.g. [src/app.py:10-24]. Cite only files you actually saw.
 - If the repository does not contain the answer, say "I couldn't find this in the \
 repository." and briefly say what you searched. Never guess.
-- Answer concisely in Markdown: short paragraphs, lists and code blocks where they help."""
+- The first search for the question has already run; start from its results and call more \
+tools only when they are not enough.
+- Lead with the direct answer in one or two sentences, then only the details that matter. \
+Keep it concise (most answers fit in about 200 words) in Markdown: short paragraphs, lists \
+and code blocks where they help."""
 
 NO_ANSWER = "I couldn't produce an answer. Please try rephrasing the question."
 ERRORS = {
@@ -110,6 +116,16 @@ def build_messages(
     messages += [{"role": m.role, "content": m.content} for m in recent]
     messages.append({"role": "user", "content": question.content})
     return messages
+
+
+def prefetch_calls(question: str) -> list[ToolCall]:
+    """Search for the question before the first model call: the model then usually answers in
+    one call instead of spending a round trip (several seconds on a small GPU) deciding to search.
+    """
+    query = " ".join(question.split())[:300]
+    if not settings.CHAT_PREFETCH_SEARCH or len(query) < 2:
+        return []
+    return [ToolCall(id="prefetch_1", name="search_code", arguments=json.dumps({"query": query}))]
 
 
 def _save_error(thread: Thread, code: str, steps: list[dict[str, Any]], usage: Any) -> Message:
@@ -176,7 +192,9 @@ def answer_question(
 
     code: str | None = None
     try:
-        result = loop.run(build_messages(thread, question))
+        result = loop.run(
+            build_messages(thread, question), seed_calls=prefetch_calls(question.content)
+        )
     except ChatCancelledError:
         code = "cancelled"
     except ModelOfflineError:

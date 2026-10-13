@@ -202,7 +202,9 @@ describe("WorkspacePage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Where are users stored?" }));
 
     const chat = await screen.findByRole("complementary", { name: "Chat" });
-    expect(await within(chat).findByText("They live in UserService.")).toBeInTheDocument();
+    expect(
+      await within(chat).findByText("They live in UserService.", undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     const stream = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/messages/stream"));
     expect(JSON.parse(String(stream?.[1]?.body))).toEqual({ content: "Where are users stored?" });
   });

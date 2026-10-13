@@ -165,3 +165,11 @@ Status legend: `- [ ]` pending, `- [x]` done. A phase heading gets `✅ Complete
 - [x] Web Audio sound engine (no audio files): click ticks for tabs, cards and controls; card hover tone; cursor-trail whoosh
 - [x] Starts after the first user gesture; mute toggle in the header, remembered per browser
 - [x] Tests (132 frontend) + checked in a real browser
+
+## Chat: faster and smoother — ✅ Completed (2026-10-13)
+- [x] Measured real answers: time went into a "decide to search" round trip, discarded pre-search drafts and slow decoding
+- [x] Question searched before the first model call (one call for most answers; 37.3 s → 19.1 s live); concise-first prompt
+- [x] Streamed answer rendered like the final one and revealed at an even, adaptive pace; finished answer settles without a jump
+- [x] Thinking dots, stick-to-bottom auto-scroll, transparent chat panel, soft arrival chime
+- [x] Cursor-trail sound removed; click ticks softer and shorter
+- [x] Tests (281 backend, 140 frontend incl. StrictMode regression) + browser check with a bursty stream + E2E

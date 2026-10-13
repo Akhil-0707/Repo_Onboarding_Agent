@@ -267,6 +267,8 @@ CHAT_TOKEN_BUDGET = env_int("CHAT_TOKEN_BUDGET", 60_000)  # per answer
 CHAT_MAX_CONTEXT_CHARS = env_int("CHAT_MAX_CONTEXT_CHARS", 36_000)
 CHAT_ANSWER_MAX_TOKENS = env_int("CHAT_ANSWER_MAX_TOKENS", 1500)
 CHAT_HISTORY_TURNS = env_int("CHAT_HISTORY_TURNS", 4)  # older turns are summarised
+# Run a code search for the question before the first model call (saves a round trip).
+CHAT_PREFETCH_SEARCH = env_bool("CHAT_PREFETCH_SEARCH", True)
 CHAT_MAX_QUESTION_CHARS = env_int("CHAT_MAX_QUESTION_CHARS", 4000)
 
 # --- LLM (self-hosted, OpenAI-compatible) ------------------------------------------------

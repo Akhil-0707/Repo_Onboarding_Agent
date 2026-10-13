@@ -86,30 +86,23 @@ describe("SoundEngine", () => {
     expect(ctx.oscillators[1]!.type).toBe("sine");
   });
 
-  it("plays one faint grain per stretch of cursor travel, never in a rush", async () => {
+  it("ticks softly: pure, short sine blips well below the hover tone's length", async () => {
     const { engine, ctx } = await unlocked();
-    const fixed = () => 0.5;
-    engine.trail(40, 800, fixed);
-    expect(ctx.oscillators).toHaveLength(0); // not far enough yet
-    engine.trail(60, 800, fixed);
-    expect(ctx.oscillators).toHaveLength(1);
-    engine.trail(200, 800, fixed);
-    expect(ctx.oscillators).toHaveLength(1); // too soon after the last grain
-    ctx.currentTime = 0.1;
-    engine.trail(10, 800, fixed);
-    expect(ctx.oscillators).toHaveLength(2);
-
-    const grain = ctx.oscillators[0]!;
-    expect(grain.type).toBe("sine");
-    expect(grain.frequency.setValueAtTime.mock.calls[0]![0]).toBeCloseTo(2600);
-    // Faster strokes are a little louder, still far below a click.
-    const peak = (index: number) =>
-      ctx.gains[index]!.gain.linearRampToValueAtTime.mock.calls[0]![0];
-    ctx.currentTime = 0.3;
-    engine.trail(100, 5200, fixed);
-    expect(peak(3)).toBeGreaterThan(peak(1));
     engine.tick("card");
-    expect(peak(4)).toBeGreaterThan(peak(3) * 2);
+    expect(ctx.oscillators[0]!.type).toBe("sine");
+    const envelope = ctx.gains[1]!.gain; // [0] is the master volume
+    const [peak] = envelope.linearRampToValueAtTime.mock.calls[0]!;
+    const [, end] = envelope.exponentialRampToValueAtTime.mock.calls[0]!;
+    expect(peak).toBeLessThanOrEqual(0.07);
+    expect(end).toBeLessThan(0.03); // over in under 30 ms
+  });
+
+  it("chimes two faint rising notes when an answer arrives", async () => {
+    const { engine, ctx } = await unlocked();
+    engine.answerReady();
+    const notes = ctx.oscillators.map((o) => o.frequency.setValueAtTime.mock.calls[0]![0]);
+    expect(notes).toHaveLength(2);
+    expect(notes[1]).toBeGreaterThan(notes[0]!);
   });
 
   it("can be muted, remembers it, and wakes again when turned on", async () => {
@@ -146,7 +139,7 @@ describe("installSoundEffects", () => {
   });
 
   function fakeEngine() {
-    return { unlock: vi.fn(), tick: vi.fn(), hover: vi.fn(), trail: vi.fn() };
+    return { unlock: vi.fn(), tick: vi.fn(), hover: vi.fn() };
   }
 
   function install(engine: ReturnType<typeof fakeEngine>) {
@@ -190,14 +183,6 @@ describe("installSoundEffects", () => {
     pointer("pointerover", document.getElementById("inner")!, {});
     pointer("pointerover", document.getElementById("b")!, {});
     expect(engine.hover).toHaveBeenCalledTimes(2);
-  });
-
-  it("feeds cursor travel and speed to the trail sound", () => {
-    const engine = fakeEngine();
-    install(engine);
-    pointer("pointermove", document.body, { clientX: 0, clientY: 0, timeStamp: 1000 });
-    pointer("pointermove", document.body, { clientX: 30, clientY: 40, timeStamp: 1050 });
-    expect(engine.trail).toHaveBeenCalledWith(50, 1000); // 50 px in 50 ms
   });
 });
 

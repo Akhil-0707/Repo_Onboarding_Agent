@@ -348,10 +348,27 @@ class AgentLoop:
             self.on_tool_end(event)
         return event, result
 
-    def run(self, messages: list[Message], start_iteration: int = 0) -> AgentResult:
+    def run(
+        self,
+        messages: list[Message],
+        start_iteration: int = 0,
+        seed_calls: list[ToolCall] | None = None,
+    ) -> AgentResult:
+        """``seed_calls`` run before the first model call, recorded as if the model had made
+        them: the model starts with their results and often answers in one call."""
         messages = list(messages)
         events: list[ToolEvent] = []
         citations: list[Citation] = []
+        if seed_calls:
+            messages.append(
+                {"role": "assistant", "content": "",
+                 "tool_calls": [c.to_message_dict() for c in seed_calls]}
+            )  # fmt: skip
+            for call in seed_calls:
+                event, result = self._run_tool(call, start_iteration)
+                events.append(event)
+                citations.extend(result.citations)
+                messages.append({"role": "tool", "tool_call_id": call.id, "content": result.output})
         consecutive_invalid = 0
         nudged_empty = False
         nudged_look = False

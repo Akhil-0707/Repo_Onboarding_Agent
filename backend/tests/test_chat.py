@@ -154,9 +154,14 @@ def test_answer_streams_tool_steps_tokens_and_validated_citations(repo: Reposito
     assert kinds[0] == "start" and kinds[-1] == "done"
     assert events[0][1]["message"]["content"] == "Where are users stored?"
     assert kinds.index("tool_start") < kinds.index("tool_end") < kinds.index("token")
-    tool_end = dict(events)["tool_end"]
-    assert tool_end["name"] == "read_file" and tool_end["ok"] and tool_end["id"] == 1
-    assert dict(events)["tool_start"]["summary"] == "Reading 'app/services.py'"
+    # The question is searched before the first model call, then the model reads a file.
+    tool_ends = [data for kind, data in events if kind == "tool_end"]
+    assert [(t["id"], t["name"], t["ok"]) for t in tool_ends] == [
+        (1, "search_code", True),
+        (2, "read_file", True),
+    ]
+    starts = [data["summary"] for kind, data in events if kind == "tool_start"]
+    assert starts[1] == "Reading 'app/services.py'"
     streamed = "".join(data["text"] for kind, data in events if kind == "token")
     assert "UserService" in streamed  # live preview of the answer
 
@@ -169,7 +174,10 @@ def test_answer_streams_tool_steps_tokens_and_validated_citations(repo: Reposito
     assert "app/cache.py" not in final["content"]  # invented file removed
     assert final["content"].endswith("calls it. Caching lives in.")
     assert final["citations"] == citations
-    assert final["tool_steps"][0]["summary"] == "Reading 'app/services.py'"
+    assert final["tool_steps"][1]["summary"] == "Reading 'app/services.py'"
+    first = llm.requests[0]["messages"]
+    assert [m["role"] for m in first[-2:]] == ["assistant", "tool"]  # search results up front
+    assert "<repo_content" in first[-1]["content"]
 
     thread = Thread.objects.get(pk=thread_id)
     assert thread.title == "Where are users stored?"
@@ -186,27 +194,24 @@ def test_history_keeps_recent_turns_and_summarises_older_ones(
     repo: Repository, settings: Any
 ) -> None:
     settings.CHAT_HISTORY_TURNS = 1
-    # Each first reply answers without looking at the code: it is discarded and the model is
-    # asked to check the repository first (it then answers directly the second time).
-    llm = ScriptedLLM(
-        *[r for text in ("First", "Second", "Third")
-          for r in (reply("From memory."), reply(f"{text} answer."))]
-    )  # fmt: skip
+    # The question is searched up front, so each answer takes one model call.
+    llm = ScriptedLLM(*[reply(f"{text} answer.") for text in ("First", "Second", "Third")])
     set_llm_client(llm)
     client = owner_client(repo)
     thread_id = new_thread(client, repo)
     for question in ("Question one?", "Question two?", "Question three?"):
         assert events_of(ask(client, repo, thread_id, question))[-1][0] == "done"
 
-    messages = llm.requests[4]["messages"]
+    messages = llm.requests[2]["messages"]
     assert "Earlier in this conversation (summary):\n- Q: Question one?\n- A: First answer." in (
         messages[0]["content"]
     )
-    assert messages[1:] == [
+    assert messages[1:4] == [
         {"role": "user", "content": "Question two?"},
         {"role": "assistant", "content": "Second answer."},
         {"role": "user", "content": "Question three?"},
     ]
+    assert [m["role"] for m in messages[4:]] == ["assistant", "tool"]  # the up-front search
     assert Thread.objects.get(pk=thread_id).title == "Question one?"
 
 
@@ -216,17 +221,35 @@ def test_model_dying_mid_answer_sends_an_error_event(repo: Repository) -> None:
     thread_id = new_thread(client, repo)
 
     events = events_of(ask(client, repo, thread_id, "Where are users stored?"))
-    assert [kind for kind, _ in events] == ["start", "error"]
-    assert events[1][1]["code"] == "model_offline"
-    failed = Message.objects.get(pk=events[1][1]["message_id"])
+    # The up-front search still shows as a research step before the error.
+    assert [kind for kind, _ in events] == ["start", "tool_start", "tool_end", "error"]
+    assert events[-1][1]["code"] == "model_offline"
+    failed = Message.objects.get(pk=events[-1][1]["message_id"])
     assert failed.status == "error" and failed.role == "assistant"
 
     # Failed answers are not replayed to the model as history.
-    llm = ScriptedLLM(reply("From memory."), reply("Now it works."))
+    llm = ScriptedLLM(reply("Now it works."))
     set_llm_client(llm)
     assert events_of(ask(client, repo, thread_id, "Again?"))[-1][0] == "done"
     roles = [m["role"] for m in llm.requests[0]["messages"]]
-    assert roles == ["system", "user", "user"]
+    assert roles == ["system", "user", "user", "assistant", "tool"]  # + the up-front search
+
+
+def test_prefetched_search_lets_the_model_answer_in_one_call(
+    repo: Repository, settings: Any
+) -> None:
+    llm = ScriptedLLM(reply(ANSWER))
+    set_llm_client(llm)
+    client = owner_client(repo)
+    thread_id = new_thread(client, repo)
+    assert events_of(ask(client, repo, thread_id, "Where are users stored?"))[-1][0] == "done"
+    assert len(llm.requests) == 1  # no round trip spent deciding to search
+
+    # Without it, an answer given before looking is discarded once (look-first nudge).
+    settings.CHAT_PREFETCH_SEARCH = False
+    llm = ScriptedLLM(reply("From memory."), reply(ANSWER))
+    set_llm_client(llm)
+    assert events_of(ask(client, repo, thread_id, "And the routes?"))[-1][0] == "done"
     assert llm.requests[1]["messages"][-1]["content"].startswith("Before answering, use the tools")
 
 

@@ -90,7 +90,9 @@ removed. If the output is unusable after repair, the model is told exactly why a
 
 **Chat agent.** Same tools, conversation history (recent turns verbatim, older turns
 summarised), must look at the code before answering, cites `[path:start-end]`; invented
-citations are stripped and only validated ones become clickable.
+citations are stripped and only validated ones become clickable. The question is searched
+before the first model call, so most answers need a single call (on Qwen3-8B: about 19 s instead
+of 37 s for the same question); the UI reveals the streamed text at an even pace.
 
 ## Stack
 

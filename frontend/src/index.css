@@ -14,6 +14,7 @@
   --animate-fade-in: fade-in 320ms ease-out both;
   --animate-slide-in-right: slide-in-right 450ms var(--ease-soft) both;
   --animate-pop-in: pop-in 220ms var(--ease-soft) both;
+  --animate-dot: dot 1.2s ease-in-out infinite;
 
   @keyframes page-in {
     from {
@@ -36,6 +37,18 @@
     from {
       opacity: 0;
       transform: translateX(24px);
+    }
+  }
+  @keyframes dot {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-3px);
     }
   }
   @keyframes pop-in {

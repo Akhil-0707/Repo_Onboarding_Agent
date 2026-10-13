@@ -435,7 +435,7 @@ export function WorkspacePage() {
         {chatOpen && (
           <aside
             aria-label="Chat"
-            className="animate-slide-in-right flex w-96 shrink-0 flex-col border-l border-slate-900/[0.06] bg-white max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:shadow-2xl dark:border-white/[0.06] dark:bg-neutral-950"
+            className="animate-slide-in-right flex w-96 shrink-0 flex-col border-l border-slate-900/[0.06] max-lg:absolute max-lg:top-12 max-lg:bottom-0 max-lg:right-0 max-lg:z-10 max-lg:w-full max-lg:max-w-md max-lg:bg-white/85 max-lg:shadow-2xl max-lg:backdrop-blur-xl dark:border-white/[0.06] max-lg:dark:bg-black/80"
           >
             <div className="border-b border-slate-900/[0.06] px-4 py-3 text-sm font-semibold dark:border-white/[0.06]">
               Ask about this codebase

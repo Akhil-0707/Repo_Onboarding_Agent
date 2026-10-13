@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import {
@@ -10,10 +10,11 @@ import {
   useThread,
   useThreads,
 } from "../../api/chat";
-import type { ChatMessage, ThreadDetail, ToolStep } from "../../api/chat";
+import type { ChatCitation, ChatMessage, ThreadDetail, ToolStep } from "../../api/chat";
 import { useLLMHealth } from "../../api/health";
+import { useSmoothText } from "../../hooks/useSmoothText";
 import type { CodeRef } from "../../lib/refs";
-import { Spinner } from "../StateViews";
+import { sound } from "../../lib/sound";
 import { AnswerText } from "./AnswerText";
 import { ToolSteps } from "./ToolSteps";
 
@@ -24,6 +25,47 @@ interface Pending {
   started: boolean;
   steps: ToolStep[];
   draft: string;
+  /** The saved answer: shown once the smooth reveal has caught up with it. */
+  final: ChatMessage | null;
+}
+
+/** Three soft dots while the model is thinking. */
+function ThinkingDots() {
+  return (
+    <span role="status" aria-label="Thinking" className="inline-flex items-center gap-1 py-2">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className="animate-dot h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500"
+          style={{ animationDelay: `${i * 160}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** The answer as it streams: rendered like the final answer (no jump at the end) and revealed
+ * at an even pace; `onRevealed` fires once the complete answer is fully shown. */
+function StreamingAnswer({
+  text,
+  citations,
+  done,
+  onOpen,
+  onRevealed,
+}: {
+  text: string;
+  citations: ChatCitation[];
+  done: boolean;
+  onOpen: (ref: CodeRef) => void;
+  onRevealed: () => void;
+}) {
+  const { text: shown, caughtUp } = useSmoothText(text, done);
+  const finished = done && caughtUp;
+  useEffect(() => {
+    if (finished) onRevealed();
+  }, [finished, onRevealed]);
+  return <AnswerText text={finished ? shown : `${shown}▍`} citations={citations} onOpen={onOpen} />;
 }
 
 function MessageView({
@@ -83,31 +125,45 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const autoAsked = useRef(false);
-  const bottom = useRef<HTMLDivElement | null>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const content = useRef<HTMLDivElement | null>(null);
+  /** Follow new text only while the reader is at the bottom; scrolling up to read stops it. */
+  const stick = useRef(true);
+  /** Completes a finished answer once its reveal has caught up. */
+  const finish = useRef<(() => void) | null>(null);
+  /** A short answer can be fully revealed before the stream has closed. */
+  const revealed = useRef(false);
 
-  const messages = thread.data?.messages ?? [];
+  // While an answer is still being revealed, a refetched thread may already contain it.
+  const messages = (thread.data?.messages ?? []).filter((m) => m.id !== pending?.final?.id);
 
   const send = async (raw: string) => {
     const content = raw.trim();
     if (!content || pending || offline) return;
     setError(null);
     setInput("");
-    setPending({ question: content, started: false, steps: [], draft: "" });
+    setPending({ question: content, started: false, steps: [], draft: "", final: null });
+    stick.current = true;
+    revealed.current = false;
     const controller = new AbortController();
     abort.current = controller;
     let id = threadId;
     let started = false;
+    let final: ChatMessage | null = null;
+    const append = (message: ChatMessage) => {
+      if (!id) return;
+      queryClient.setQueryData<ThreadDetail>(chatKeys.thread(repoId, id), (old) =>
+        old && !old.messages.some((m) => m.id === message.id)
+          ? { ...old, messages: [...old.messages, message] }
+          : old,
+      );
+    };
     try {
       if (!id) {
         const created = await createThread.mutateAsync();
         id = created.id;
         setSelected(created.id);
       }
-      const key = chatKeys.thread(repoId, id);
-      const append = (message: ChatMessage) =>
-        queryClient.setQueryData<ThreadDetail>(key, (old) =>
-          old ? { ...old, messages: [...old.messages, message] } : old,
-        );
       await askQuestion(
         repoId,
         id,
@@ -126,7 +182,10 @@ export function ChatPanel({
             ),
           onToken: (text) => setPending((p) => p && { ...p, draft: p.draft + text }),
           onRetract: () => setPending((p) => p && { ...p, draft: "" }),
-          onDone: append,
+          onDone: (message) => {
+            final = message;
+            setPending((p) => p && { ...p, final: message });
+          },
           onError: (_code, message) => setError(message),
         },
         controller.signal,
@@ -138,11 +197,28 @@ export function ChatPanel({
       }
     } finally {
       abort.current = null;
-      setPending(null);
-      if (id) void queryClient.invalidateQueries({ queryKey: chatKeys.thread(repoId, id) });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.threads(repoId), exact: true });
+      const settle = () => {
+        finish.current = null;
+        if (final) append(final);
+        setPending(null);
+        if (id) void queryClient.invalidateQueries({ queryKey: chatKeys.thread(repoId, id) });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.threads(repoId), exact: true });
+      };
+      const complete = () => {
+        sound.answerReady();
+        settle();
+      };
+      // A complete answer finishes when its reveal catches up (see StreamingAnswer).
+      if (!final || controller.signal.aborted) settle();
+      else if (revealed.current) complete();
+      else finish.current = complete;
     }
   };
+
+  const onRevealed = useCallback(() => {
+    if (finish.current) finish.current();
+    else revealed.current = true; // the stream closes right after: complete it then
+  }, []);
 
   useEffect(() => {
     if (autoAsk && !autoAsked.current) {
@@ -155,9 +231,17 @@ export function ChatPanel({
 
   useEffect(() => () => abort.current?.abort(), []);
 
+  // Keep the newest text in view while it grows (every revealed frame changes the height).
   useEffect(() => {
-    bottom.current?.scrollIntoView?.({ block: "end" });
-  }, [messages.length, pending?.draft, pending?.steps.length]);
+    const box = scroller.current;
+    const inner = content.current;
+    if (!box || !inner || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (stick.current) box.scrollTop = box.scrollHeight;
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -214,68 +298,80 @@ export function ChatPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-3" aria-live="polite">
-        {empty ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-slate-500">
-              Ask anything about this codebase. Answers cite the exact files and lines they are
-              based on.
-            </p>
-            {starterQuestions.length > 0 && (
-              <ul aria-label="Suggested questions" className="stagger flex flex-col gap-2">
-                {starterQuestions.map((question) => (
-                  <li key={question}>
-                    <button
-                      type="button"
-                      disabled={offline}
-                      onClick={() => void send(question)}
-                      className="w-full rounded-xl text-left bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
-                    >
-                      {question}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {messages.map((message) => (
-              <MessageView key={message.id} message={message} onOpen={onOpen} />
-            ))}
-            {pending && (
-              <>
-                {!pending.started && (
-                  <MessageView
-                    message={{
-                      id: "pending",
-                      role: "user",
-                      content: pending.question,
-                      status: "complete",
-                      error: "",
-                      citations: [],
-                      tool_steps: [],
-                      created_at: "",
-                    }}
-                    onOpen={onOpen}
-                  />
-                )}
-                <div className="mr-4" aria-busy="true">
-                  <ToolSteps steps={pending.steps} live />
-                  {pending.draft ? (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {pending.draft}
-                      <span className="ml-0.5 animate-pulse">▍</span>
-                    </p>
-                  ) : (
-                    <Spinner label="Thinking" />
+      <div
+        ref={scroller}
+        onScroll={(event) => {
+          const box = event.currentTarget;
+          stick.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        }}
+        className="min-h-0 flex-1 overflow-auto px-3 py-3"
+        aria-live="polite"
+      >
+        <div ref={content}>
+          {empty ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-slate-500">
+                Ask anything about this codebase. Answers cite the exact files and lines they are
+                based on.
+              </p>
+              {starterQuestions.length > 0 && (
+                <ul aria-label="Suggested questions" className="stagger flex flex-col gap-2">
+                  {starterQuestions.map((question) => (
+                    <li key={question}>
+                      <button
+                        type="button"
+                        disabled={offline}
+                        onClick={() => void send(question)}
+                        className="w-full rounded-xl text-left bg-slate-900/[0.04] px-3.5 py-1.5 text-sm text-slate-700 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:-translate-y-px hover:bg-slate-900/[0.08] hover:text-slate-900 active:translate-y-0 disabled:cursor-default disabled:opacity-60 dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.08] dark:hover:bg-white/10 dark:hover:text-white"
+                      >
+                        {question}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {messages.map((message) => (
+                <MessageView key={message.id} message={message} onOpen={onOpen} />
+              ))}
+              {pending && (
+                <>
+                  {!pending.started && (
+                    <MessageView
+                      message={{
+                        id: "pending",
+                        role: "user",
+                        content: pending.question,
+                        status: "complete",
+                        error: "",
+                        citations: [],
+                        tool_steps: [],
+                        created_at: "",
+                      }}
+                      onOpen={onOpen}
+                    />
                   )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-        <div ref={bottom} />
+                  <div className="animate-fade-up mr-4" aria-busy={!pending.final}>
+                    <ToolSteps steps={pending.steps} live={!pending.final} />
+                    {pending.final || pending.draft ? (
+                      <StreamingAnswer
+                        text={pending.final?.content ?? pending.draft}
+                        citations={pending.final?.citations ?? []}
+                        done={Boolean(pending.final)}
+                        onOpen={onOpen}
+                        onRevealed={onRevealed}
+                      />
+                    ) : (
+                      <ThinkingDots />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
