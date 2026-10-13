@@ -102,6 +102,11 @@
   ::selection {
     @apply bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900;
   }
+  /* Native dropdown lists: selects have see-through backgrounds, and the browser would draw
+     their option list on its own default colours (light text on white in the dark theme). */
+  option {
+    @apply bg-white text-slate-900 dark:bg-neutral-900 dark:text-slate-100;
+  }
 }
 
 /* The brand gradient as a fill (with its readable text colour) and as text. */
